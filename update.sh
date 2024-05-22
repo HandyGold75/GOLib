@@ -13,7 +13,7 @@ for subdir in `ls -d */`; do
 
     file=${subdir,,}
     file=${file/"/"/""}
-    
+
     # go get -u
     go get -u -d ./...
     go mod tidy
