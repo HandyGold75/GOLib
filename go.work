@@ -1,0 +1,10 @@
+go 1.21.6
+
+use (
+	./cfg
+	./DataBase
+	./jsonp
+	./logger
+	./progressBar
+	./s:wcheduler
+)
