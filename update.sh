@@ -1,7 +1,7 @@
 #!/bin/bash
-dir="$( cd "$( dirname "$0" )" && pwd )"
+dir="$( cd "$( dirname "$0" )" && pwd )/pkg"
 
-cd $dir || exit 1
+cd "$dir" || exit 1
 
 for subdir in `ls -d */`; do
     if [ "$(ls "$dir/$subdir" | grep go.mod)" = "" ]; then
