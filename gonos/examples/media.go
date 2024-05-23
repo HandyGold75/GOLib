@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/HandyGold75/gonos"
+	"github.com/HandyGold75/GOLib/gonos"
 )
 
 func main() {

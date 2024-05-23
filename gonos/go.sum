@@ -1,5 +1,3 @@
-github.com/HandyGold75/gonos v0.0.0-20240422131633-3494fd26a61b h1:QkhFM7fwS95jntDMYhZAX0ZQs0Q1wVkhDQbrI+nWqhI=
-github.com/HandyGold75/gonos v0.0.0-20240422131633-3494fd26a61b/go.mod h1:o99L4Jnvy9c3MNu21sYpw9vimGKwe+A6WBBGZe9nAKI=
 github.com/franela/goblin v0.0.0-20211003143422-0a4f594942bf h1:NrF81UtW8gG2LBGkXFQFqlfNnvMt9WdB46sfdJY4oqc=
 github.com/franela/goblin v0.0.0-20211003143422-0a4f594942bf/go.mod h1:VzmDKDJVZI3aJmnRI9VjAn9nJ8qPPsN1fqzr9dqInIo=
 github.com/franela/goreq v0.0.0-20171204163338-bcd34c9993f8 h1:a9ENSRDFBUPkJ5lCgVZh26+ZbGyoVJG7yb5SSzF5H54=

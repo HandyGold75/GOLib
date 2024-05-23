@@ -1,4 +1,4 @@
-module progressBar
+module github.com/HandyGold75/GOLib/progressBar
 
 go 1.21.6
 

@@ -15,6 +15,6 @@ for subdir in `ls -d */`; do
     file=${file/"/"/""}
 
     # go get -u
-    go get -u -d ./...
     go mod tidy
+    go get -u -d ./...
 done
