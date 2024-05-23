@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/HandyGold75/gonos"
+	"github.com/HandyGold75/GOLib/gonos"
 )
 
 func main() {
@@ -24,7 +24,7 @@ func main() {
 
 	zp.Next()
 	ti, _ := zp.GetTrackInfo()
-	fmt.Println(ti.TItle)
+	fmt.Println(ti.Title)
 
 	time.Sleep(time.Second * time.Duration(5))
 
@@ -36,7 +36,7 @@ func main() {
 
 	zp.Previous()
 	ti, _ = zp.GetTrackInfo()
-	fmt.Println(ti.TItle)
+	fmt.Println(ti.Title)
 
 	time.Sleep(time.Second * time.Duration(5))
 

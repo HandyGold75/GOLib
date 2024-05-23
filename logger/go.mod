@@ -1,4 +1,4 @@
-module logger
+module github.com/HandyGold75/GOLib/logger
 
 go 1.21.6
 
