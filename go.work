@@ -1,8 +1,8 @@
 go 1.22.3
 
 use (
-	./DataBase
 	./cfg
+	./DataBase
 	./gonos
 	./jsonp
 	./logger
