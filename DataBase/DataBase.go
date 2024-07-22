@@ -14,8 +14,8 @@ type (
 	DataBase struct {
 		name         string
 		path         string
-		seperatorEOK string
 		template     Template
+		seperatorEOK string
 		sheets       map[string]*Sheet
 	}
 
@@ -51,6 +51,21 @@ var (
 		ErrInvalidDataContent: errors.New("invalid data content"),
 	}
 )
+
+// Get db name.
+func (db *DataBase) GetName() string {
+	return db.name
+}
+
+// Get db path.
+func (db *DataBase) GetPath() string {
+	return db.path
+}
+
+// Get db template.
+func (db *DataBase) GetTemplate() Template {
+	return db.template
+}
 
 // Load disk to memory.
 // Warning: this will override changes made since last dump!
@@ -266,7 +281,7 @@ func (db *DataBase) Has(sheet string) bool {
 	return ok
 }
 
-// Open an sheet for interaction.
+// Open an record for interaction.
 // Does not need to be closed.
 func (sheet *Sheet) Open(index int) (*Record, error) {
 	if index < 0 || len(sheet.records)-1 < index {
@@ -404,11 +419,11 @@ func (record *Record) Has(index int) bool {
 // Create new db.
 // Will load from exisitng db on disk or create a new db on disk.
 func New(name string, path string, template Template) (*DataBase, error) {
-	return NewDB(name, path, "modified", "<EOK>", template)
+	return NewDB(name, path, "<EOK>", template)
 }
 
 // Same as NewDB but with more options.
-func NewDB(name string, path string, modifiedKey string, eokSeperator string, template Template) (*DataBase, error) {
+func NewDB(name string, path string, eokSeperator string, template Template) (*DataBase, error) {
 	db := &DataBase{
 		name:         name,
 		path:         path,
