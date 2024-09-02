@@ -174,7 +174,7 @@ func setNextTimeByHour(currentTime *time.Time, hours []int) {
 			return
 		}
 
-		offset = 24 - currentHour
+		offset = 25 - currentHour
 		currentHour = 0
 	}
 
@@ -202,7 +202,7 @@ func setNextTimeByMinute(currentTime *time.Time, minutes []int) {
 			return
 		}
 
-		offset = 60 - currentMinute
+		offset = 61 - currentMinute
 		currentMinute = 0
 	}
 
