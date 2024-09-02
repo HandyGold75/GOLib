@@ -76,11 +76,7 @@ func setNextTimeByMonth(currentTime *time.Time, months []int) {
 				continue
 			}
 
-			*currentTime = currentTime.AddDate(0, (possibleTargetMonth+offset)-currentMonth, -currentTime.Day()+1)
-			*currentTime = currentTime.Add(-time.Hour*time.Duration(currentTime.Hour()) +
-				-time.Minute*time.Duration(currentTime.Minute()) +
-				-time.Second*time.Duration(currentTime.Second()) +
-				-time.Nanosecond*time.Duration(currentTime.Nanosecond()))
+			*currentTime = currentTime.AddDate(0, (possibleTargetMonth+offset)-currentMonth, 0)
 
 			return
 		}
@@ -107,10 +103,6 @@ func setNextTimeByWeek(currentTime *time.Time, weeks []int) {
 			}
 
 			*currentTime = currentTime.AddDate(0, 0, ((possibleTargetWeek+offset)-currentWeek)*7)
-			*currentTime = currentTime.Add(-time.Hour*time.Duration(currentTime.Hour()) +
-				-time.Minute*time.Duration(currentTime.Minute()) +
-				-time.Second*time.Duration(currentTime.Second()) +
-				-time.Nanosecond*time.Duration(currentTime.Nanosecond()))
 
 			return
 		}
@@ -137,10 +129,6 @@ func setNextTimeByDay(currentTime *time.Time, days []int) {
 			}
 
 			*currentTime = currentTime.AddDate(0, 0, (possibleTargetDay+offset)-currentDay)
-			*currentTime = currentTime.Add(-time.Hour*time.Duration(currentTime.Hour()) +
-				-time.Minute*time.Duration(currentTime.Minute()) +
-				-time.Second*time.Duration(currentTime.Second()) +
-				-time.Nanosecond*time.Duration(currentTime.Nanosecond()))
 
 			return
 		}
@@ -166,15 +154,12 @@ func setNextTimeByHour(currentTime *time.Time, hours []int) {
 				continue
 			}
 
-			*currentTime = currentTime.Add(time.Hour*time.Duration((possibleTargetHour+offset)-currentHour) +
-				-time.Minute*time.Duration(currentTime.Minute()) +
-				-time.Second*time.Duration(currentTime.Second()) +
-				-time.Nanosecond*time.Duration(currentTime.Nanosecond()))
+			*currentTime = currentTime.Add(time.Hour * time.Duration((possibleTargetHour+offset)-currentHour))
 
 			return
 		}
 
-		offset = 25 - currentHour
+		offset = 24 - currentHour
 		currentHour = 0
 	}
 
@@ -195,14 +180,12 @@ func setNextTimeByMinute(currentTime *time.Time, minutes []int) {
 				continue
 			}
 
-			*currentTime = currentTime.Add(time.Minute*time.Duration((possibleTargetMinute+offset)-currentMinute) +
-				-time.Second*time.Duration(currentTime.Second()) +
-				-time.Nanosecond*time.Duration(currentTime.Nanosecond()))
+			*currentTime = currentTime.Add(time.Minute * time.Duration((possibleTargetMinute+offset)-currentMinute))
 
 			return
 		}
 
-		offset = 61 - currentMinute
+		offset = 60 - currentMinute
 		currentMinute = 0
 	}
 
@@ -214,11 +197,13 @@ func SetNextTime(currentTime *time.Time, scedule *Scedule) error {
 		return err
 	}
 
-	setNextTimeByMonth(currentTime, scedule.Months)
-	setNextTimeByWeek(currentTime, scedule.Weeks)
-	setNextTimeByDay(currentTime, scedule.Days)
-	setNextTimeByHour(currentTime, scedule.Hours)
+	*currentTime = currentTime.Add(-time.Second*time.Duration(currentTime.Second()) + -time.Nanosecond*time.Duration(currentTime.Nanosecond()))
+
 	setNextTimeByMinute(currentTime, scedule.Minutes)
+	setNextTimeByHour(currentTime, scedule.Hours)
+	setNextTimeByDay(currentTime, scedule.Days)
+	setNextTimeByWeek(currentTime, scedule.Weeks)
+	setNextTimeByMonth(currentTime, scedule.Months)
 
 	return nil
 }
