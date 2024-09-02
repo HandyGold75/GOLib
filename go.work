@@ -2,8 +2,6 @@ go 1.22.3
 
 use (
 	./cfg
-	./gonos
-	./jsonp
 	./logger
 	./progressBar
 	./scheduler
