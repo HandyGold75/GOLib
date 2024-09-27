@@ -17,7 +17,7 @@ type (
 		// Weeks of the month: 1 - 5
 		Weeks []int
 
-		// Days of the week: 1 - 7
+		// Days of the week: 0 - 6 (Sunday first day of the week)
 		Days []int
 
 		// Hours of the day: 0 - 23
@@ -42,8 +42,8 @@ func verifySceduleData(scedule *Scedule) error {
 	}
 
 	for _, v := range scedule.Days {
-		if v < 1 || v > 7 {
-			return fmt.Errorf(fmt.Sprintf("Value \"%v\" for day is not valid!\nValid values: <1-7>", v))
+		if v < 0 || v > 6 {
+			return fmt.Errorf(fmt.Sprintf("Value \"%v\" for day is not valid!\nValid values: <0-6>", v))
 		}
 	}
 
