@@ -108,7 +108,7 @@ func (logger Logger) Log(verbosity string, msgs ...any) {
 
 func (logger Logger) logToCLI(verbosity string, msgs ...any) {
 	width, _, _ := term.GetSize(0)
-	msg := fmt.Sprintf(strings.Repeat("%-"+strconv.Itoa(min(logger.CharCountPerMsg, int(float32(width)/float32(len(msgs)))))+"v", len(msgs)), msgs...)
+	msg := fmt.Sprintf(strings.Repeat("%-"+strconv.Itoa(min(logger.CharCountPerMsg, int(float64(width)/float64(len(msgs)))))+"v", len(msgs)), msgs...)
 
 	if logger.AppendVerbosity {
 		msg = fmt.Sprintf("%-"+strconv.Itoa(logger.CharCountVerbosity)+"v ", verbosity) + msg
