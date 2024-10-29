@@ -1,4 +1,4 @@
-module github.com/HandyGold75/GOLib/scheduler
+module github.com/HandyGold75/GOLib/pbar
 
 go 1.23.1
 
