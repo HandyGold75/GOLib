@@ -1,4 +1,4 @@
-package progressBar
+package pbar
 
 import (
 	"fmt"
@@ -17,10 +17,10 @@ var (
 	// Should be set manually.
 	ActionsTotal = 0
 
-	// Verbosity 1 extra info is added and msg is appended to the progress bar in Log.
+	// Verbosity 1: extra info is added and msg is appended to the progress bar in Log.
 	// The progress bar will be dynamicly size, progress bar and msg will be cut off respecting the terminal width.
 	//
-	// Verbosity 2 or larger format and v are forwarded to fmt.Printf.
+	// Verbosity 2 or larger progress bar will act like fmt.Printf.
 	Verbose = 0
 )
 
@@ -40,7 +40,6 @@ func Log(msg string, format string, v ...any) {
 	}
 
 	width, _, _ := term.GetSize(0)
-
 	visualProgress := float64(progress) * float64(width) / 4
 	visualProgressStr := strings.Repeat("█", int(visualProgress))
 	visualProgressDesimal := visualProgress - float64(int(visualProgress))
@@ -72,22 +71,18 @@ func Log(msg string, format string, v ...any) {
 	}
 }
 
-// Same as Log but will increment ActionsDone before loging if the verbosity is lower then 2
+// Same as Log but increments ActionsDone before loging if the verbosity is lower then 2
 func Next(msg string, format string, v ...any) {
 	if Verbose < 2 {
 		ActionsDone += 1
 	}
-
 	Log(msg, format, v...)
-
 }
 
-// Same as Log but will decrement ActionsDone before loging if the verbosity is lower then 2
+// Same as Log but decrements ActionsDone before loging if the verbosity is lower then 2
 func Back(msg string, format string, v ...any) {
 	if Verbose < 2 {
 		ActionsDone -= 1
 	}
-
 	Log(msg, format, v...)
-
 }
