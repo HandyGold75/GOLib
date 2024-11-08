@@ -13,6 +13,9 @@ func expandArgs[T any](s *T, args []string) []string {
 	allSwitches := []string{}
 	allPrefixes := []string{}
 	forEachStructField(s, func(field reflect.StructField, value reflect.Value) {
+		if field.Type.String() == "[]string" {
+			return
+		}
 		prefix := field.Tag.Get("prefix")
 		if prefix == "" {
 			prefix = "-"
@@ -55,6 +58,9 @@ func expandArgs[T any](s *T, args []string) []string {
 func parseArgs[T any](s *T, args []string) []string {
 	allPrefixes := []string{}
 	forEachStructField(s, func(field reflect.StructField, value reflect.Value) {
+		if field.Type.String() == "[]string" {
+			return
+		}
 		prefix := field.Tag.Get("prefix")
 		if prefix == "" {
 			prefix = "-"
@@ -208,6 +214,9 @@ func forEachStructField[T any](s *T, handler func(reflect.StructField, reflect.V
 func HelpMenu[T any](s T, details bool) {
 	maxLenSwts := 0
 	forEachStructField(&s, func(field reflect.StructField, _ reflect.Value) {
+		if field.Type.String() == "[]string" {
+			return
+		}
 		lenSwt := len(field.Tag.Get("switch")) + max(1, len(field.Tag.Get("prefix"))) + (len(strings.Split(field.Tag.Get("switch"), ",")))
 		if lenSwt > maxLenSwts {
 			maxLenSwts = lenSwt
