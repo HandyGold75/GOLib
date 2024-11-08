@@ -1,4 +1,4 @@
-package main
+package argp
 
 import (
 	"fmt"
@@ -7,17 +7,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-)
-
-type (
-	arg struct {
-		Help   bool    `switch:"h,-help"   opts:"help"`
-		FieldA float64 `switch:"a"         opts:"posistional"`
-		FieldB bool    `switch:"b"         prefix:"/" opts:"required"`
-		FieldC int     `switch:"c,-cc"     default:"5"`
-		FieldD uint    `switch:"d,-dd-ddd" default:"7" opts:"required"`
-		FieldE string  `switch:"e,-ee"     help:"Some help for e."`
-	}
 )
 
 func forEachStructField[T any](s *T, handler func(reflect.StructField, reflect.Value)) {
@@ -109,6 +98,7 @@ func HelpMenu[T any](s T, details bool) {
 }
 
 // Parses os.Args into s. Panics if s is not of type struct or a public field doesn't contain a switch tag. Private struct fields are ignored.
+// Runs args.HelpMenu and exits gracefully if user input is invalid.
 //
 // Struct format:
 //
@@ -137,14 +127,14 @@ func HelpMenu[T any](s T, details bool) {
 //	arg struct {
 //		Help   bool    `switch:"h,-help"   opts:"help"`
 //		FieldA float64 `switch:"a"         opts:"posistional"`
-//		FieldB bool    `switch:"b"         prefix:"/" opts:"required"`
+//		FieldB bool    `switch:"b"`
 //		FieldC int     `switch:"c,-cc"     default:"5"`
 //		FieldD uint    `switch:"d,-dd-ddd" default:"7" opts:"required"`
-//		FieldE string  `switch:"e,-ee"     help:"Some help for e."`
+//		FieldE string  `switch:"e,-ee"     prefix:"/" help:"Some help for e."`
 //	}
 //
-// Usage: exec -a=somemessage /b --cc 10 --dd-ddd=2
-func ParseArgs[T any](s T) T {
+// Usage: exec -a=-1.1 -bc 10 --dd-ddd=2 /e "some message"
+func Parse[T any](s T) T {
 	args := os.Args[1:]
 
 	allSwitches := [][2]string{}
@@ -162,8 +152,6 @@ func ParseArgs[T any](s T) T {
 			}
 		}
 	})
-
-	fmt.Println(args)
 
 	for i := 0; i < len(args); i++ {
 		if strings.Contains(args[i], "=") {
@@ -191,8 +179,6 @@ func ParseArgs[T any](s T) T {
 		args = append(newArgs, args[i+1:]...)
 		i = i + (len(newArgs) - 1)
 	}
-
-	fmt.Println(args)
 
 	forEachStructField(&s, func(field reflect.StructField, value reflect.Value) {
 		prefix := field.Tag.Get("prefix")
@@ -227,11 +213,11 @@ func ParseArgs[T any](s T) T {
 
 		if val == "" && field.Type.Name() != "bool" {
 			if slices.Contains(strings.Split(field.Tag.Get("opts"), ","), "required") {
-				fmt.Println("Missing required argument " + field.Name + "\r\n")
+				fmt.Println("Missing required argument " + field.Name)
 				HelpMenu(s, false)
 				os.Exit(0)
 			} else if index > -1 {
-				fmt.Println("Missing argument value for " + field.Name + "\r\n")
+				fmt.Println("Missing argument value for " + field.Name)
 				HelpMenu(s, false)
 				os.Exit(0)
 			}
@@ -248,7 +234,7 @@ func ParseArgs[T any](s T) T {
 		case "int", "int8", "int16", "int32", "int64":
 			v, err := strconv.ParseInt(val, 10, 64)
 			if err != nil {
-				fmt.Println("Invalid int format '" + val + "'\r\n")
+				fmt.Println("Invalid int format '" + val + "'")
 				HelpMenu(s, false)
 				os.Exit(0)
 			}
@@ -257,7 +243,7 @@ func ParseArgs[T any](s T) T {
 		case "uint", "uint8", "uint16", "uint32", "uint64", "uintptr":
 			v, err := strconv.ParseUint(val, 10, 64)
 			if err != nil {
-				fmt.Println("Invalid uint format '" + val + "'\r\n")
+				fmt.Println("Invalid uint format '" + val + "'")
 				HelpMenu(s, false)
 				os.Exit(0)
 			}
@@ -266,7 +252,7 @@ func ParseArgs[T any](s T) T {
 		case "float32", "float64":
 			v, err := strconv.ParseFloat(val, 64)
 			if err != nil {
-				fmt.Println("Invalid float format '" + val + "'\r\n")
+				fmt.Println("Invalid float format '" + val + "'")
 				HelpMenu(s, false)
 				os.Exit(0)
 			}
@@ -278,17 +264,20 @@ func ParseArgs[T any](s T) T {
 
 	})
 
-	fmt.Println(args)
 	if len(args) > 0 {
-		fmt.Println("Unknown arguments '" + strings.Join(args, "', '") + "'\r\n")
+		unknown := []string{}
+		for _, arg := range args {
+			if strings.Contains(arg, "=") {
+				unknown = append(unknown, strings.Split(arg, "=")[0])
+				continue
+			}
+			unknown = append(unknown, arg)
+		}
+
+		fmt.Println("Unknown arguments '" + strings.Join(unknown, "', '") + "'")
 		HelpMenu(s, false)
 		os.Exit(0)
 	}
 
 	return s
-}
-
-func main() {
-	args := ParseArgs(arg{})
-	fmt.Println(args)
 }
