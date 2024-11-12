@@ -1,4 +1,4 @@
-package main
+package argp
 
 import (
 	"fmt"
@@ -348,18 +348,4 @@ func Parse[T any](s T) T {
 	}
 
 	return s
-}
-
-func main() {
-	args := struct {
-		Help   bool     `switch:"h,-help"   opts:"help" help:"Some help for exec."`
-		FieldF []string `opts:"posistional,required"`
-		FieldA float64  `switch:"a"         prefix:"/" help:"Some help for e."`
-		FieldB bool     `switch:"b"`
-		FieldC int      `switch:"c,-cc"     default:"5"`
-		FieldD uint     `switch:"d,-dd-ddd" default:"7" opts:"required"`
-		FieldE string   `switch:"e,-ee"     opts:"posistional"`
-	}{}
-	Args := Parse(args)
-	fmt.Println(Args)
 }
