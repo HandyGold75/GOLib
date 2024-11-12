@@ -286,7 +286,7 @@ func HelpMenu[T any](s T, details bool) {
 	}
 }
 
-// Parses os.Args into s. Panics if s is not of type struct or a public field doesn't contain a switch tag. Private struct fields are ignored.
+// Parses args into s. Panics if s is not of type struct or a public field doesn't contain a switch tag. Private struct fields are ignored.
 // Runs args.HelpMenu and exits gracefully if user input is invalid.
 //
 // Struct format:
@@ -328,8 +328,8 @@ func HelpMenu[T any](s T, details bool) {
 //	}
 //
 // Usage: exec -a=-1.1 -bc 10 --dd-ddd=2 /e "some message"
-func Parse[T any](s T) T {
-	args := expandArgs(&s, os.Args[1:])
+func ParseArgs[T any](s T, args []string) T {
+	args = expandArgs(&s, args)
 	args = parseArgs(&s, args)
 
 	if len(args) > 0 {
@@ -349,3 +349,6 @@ func Parse[T any](s T) T {
 
 	return s
 }
+
+// args.ParseArgs wrapper to parse os.Args[1:]
+func Parse[T any](s T) T { return ParseArgs(s, os.Args[1:]) }
