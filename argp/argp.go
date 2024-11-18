@@ -96,11 +96,11 @@ func parseArgs[T any](s *T, args []string) []string {
 		if index > -1 {
 			if strings.Contains(args[index], "=") {
 				val = strings.Split(args[index], "=")[1]
+			} else if field.Type.String() == "bool" {
+				val = "true"
 			} else if index+1 < len(args) && !slices.ContainsFunc(allPrefixes, func(item string) bool { return strings.HasPrefix(args[index+1], item) }) {
 				val = args[index+1]
 				args = slices.Delete(args, index, index+1)
-			} else if field.Type.String() == "bool" {
-				val = strconv.FormatBool(index != -1)
 			}
 			args = slices.Delete(args, index, index+1)
 
