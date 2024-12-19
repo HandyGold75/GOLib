@@ -16,6 +16,55 @@ type (
 	command    struct{ Endpoint, Action, Body, ExpectedResponse, TargetTag string }
 	errSonos   struct{ ErrUnexpectedResponse, ErrInvalidIPAdress, ErrNoZonePlayerFound, ErrInvalidEndpoint, ErrInvalidContentType, ErrInvalidPlayMode error }
 	ZonePlayer struct{ IpAddress net.IP }
+
+	TrackInfo struct {
+		QuePosition string
+		Duration    string
+		URI         string
+		Progress    string
+		AlbumArtURI string
+		Title       string
+		Class       string
+		Creator     string
+		Album       string
+	}
+	TrackInfoRaw struct {
+		XMLName       xml.Name `xml:"GetPositionInfoResponse"`
+		Track         string
+		TrackDuration string
+		TrackMetaData string
+		TrackURI      string
+		RelTime       string
+		AbsTime       string
+		RelCount      string
+		AbsCount      string
+	}
+
+	Que struct {
+		Count      string
+		TotalCount string
+		Tracks     []QueTrack
+	}
+	QueTrack struct {
+		AlbumArtURI string
+		Title       string
+		Class       string
+		Creator     string
+		Album       string
+	}
+
+	Favorites struct {
+		Count      string
+		TotalCount string
+		Favorites  []FavoritesItem
+	}
+	FavoritesItem struct {
+		AlbumArtURI string
+		Title       string
+		Description string
+		Class       string
+		Type        string
+	}
 )
 
 var ErrSonos = errSonos{
@@ -25,19 +74,6 @@ var ErrSonos = errSonos{
 	ErrInvalidEndpoint:    errors.New("invalid endpoint"),
 	ErrInvalidContentType: errors.New("invalid content type"),
 	ErrInvalidPlayMode:    errors.New("invalid play mode"),
-}
-
-var Endpoints = map[string]string{
-	"AVTransport":      "/MediaRenderer/AVTransport/Control",
-	"RenderingControl": "/MediaRenderer/RenderingControl/Control",
-	"DeviceProperties": "/DeviceProperties/Control",
-	"ContentDirectory": "/MediaServer/ContentDirectory/Control",
-}
-var EndpointsBodyPrefix = map[string]string{
-	"AVTransport":      "<InstanceID>0</InstanceID>",
-	"RenderingControl": "<InstanceID>0</InstanceID><Channel>Master</Channel>",
-	"DeviceProperties": "<InstanceID>0</InstanceID><Channel>Master</Channel>",
-	"ContentDirectory": "",
 }
 
 var ContentTypes = map[string]string{
@@ -66,6 +102,7 @@ var Playmodes = map[string][3]bool{
 	"SHUFFLE_REPEAT_ONE": {true, false, true},
 	"REPEAT_ONE":         {false, false, true},
 }
+
 var PlaymodesReversed = func() map[[3]bool]string {
 	PMS := map[[3]bool]string{}
 	for k, v := range Playmodes {
@@ -108,6 +145,7 @@ func boolTo10(b bool) string {
 	}
 	return "0"
 }
+
 func boolToOnOff(b bool) string {
 	if b {
 		return "On"
@@ -163,7 +201,7 @@ func DiscoverZonePlayer() (*ZonePlayer, error) {
 
 // Create new ZonePlayer using network scanning controling a Sonos speaker.
 func ScanZonePlayer(cidr string) ([]*ZonePlayer, error) {
-	var incIP = func(ip net.IP) {
+	incIP := func(ip net.IP) {
 		for j := len(ip) - 1; j >= 0; j-- {
 			ip[j]++
 			if ip[j] > 0 {
@@ -207,78 +245,75 @@ func ScanZonePlayer(cidr string) ([]*ZonePlayer, error) {
 	return zps, nil
 }
 
-type (
-	TrackInfo struct {
-		QuePosition string
-		Duration    string
-		URI         string
-		Progress    string
-		AlbumArtURI string
-		Title       string
-		Class       string
-		Creator     string
-		Album       string
-	}
+func (zp *ZonePlayer) SendAVTransport(action, body, targetTag string) (string, error) {
+	return zp.sendCommand("/MediaRenderer/AVTransport/Control", "AVTransport", action, body, targetTag)
+}
 
-	TrackInfoRaw struct {
-		XMLName       xml.Name `xml:"GetPositionInfoResponse"`
-		Track         string
-		TrackDuration string
-		TrackMetaData string
-		TrackURI      string
-		RelTime       string
-		AbsTime       string
-		RelCount      string
-		AbsCount      string
-	}
-)
+func (zp *ZonePlayer) SendAlarmClock(action, body, targetTag string) (string, error) {
+	return zp.sendCommand("/AlarmClock/Control", "AlarmClock", action, body, targetTag)
+}
 
-type (
-	Que struct {
-		Count      string
-		TotalCount string
-		Tracks     []QueTrack
-	}
+func (zp *ZonePlayer) SendAudioIn(action, body, targetTag string) (string, error) {
+	return zp.sendCommand("/AudioIn/Control", "AudioIn", action, body, targetTag)
+}
 
-	QueTrack struct {
-		AlbumArtURI string
-		Title       string
-		Class       string
-		Creator     string
-		Album       string
-	}
-)
+func (zp *ZonePlayer) SendConnectionManager(action, body, targetTag string) (string, error) {
+	return zp.sendCommand("/MediaRenderer/ConnectionManager/Control", "ConnectionManager", action, body, targetTag)
+}
 
-type (
-	Favorites struct {
-		Count      string
-		TotalCount string
-		Favorites  []FavoritesItem
-	}
+func (zp *ZonePlayer) SendContentDirectory(action, body, targetTag string) (string, error) {
+	return zp.sendCommand("/MediaServer/ContentDirectory/Control", "ContentDirectory", action, body, targetTag)
+}
 
-	FavoritesItem struct {
-		AlbumArtURI string
-		Title       string
-		Description string
-		Class       string
-		Type        string
-	}
-)
+func (zp *ZonePlayer) SendDeviceProperties(action, body, targetTag string) (string, error) {
+	return zp.sendCommand("/DeviceProperties/Control", "DeviceProperties", action, body, targetTag)
+}
 
-func (zp *ZonePlayer) sendCommand(endpoint string, action string, body string, targetTag string) (string, error) {
-	endpointUri, ok := Endpoints[endpoint]
-	if !ok {
-		return "", ErrSonos.ErrInvalidEndpoint
-	}
-	endpointBodyPrefix, ok := EndpointsBodyPrefix[endpoint]
-	if !ok {
-		return "", ErrSonos.ErrInvalidEndpoint
-	}
+func (zp *ZonePlayer) SendGroupManagement(action, body, targetTag string) (string, error) {
+	return zp.sendCommand("/GroupManagement/Control", "GroupManagement", action, body, targetTag)
+}
 
+func (zp *ZonePlayer) SendGroupRenderingControl(action, body, targetTag string) (string, error) {
+	return zp.sendCommand("/MediaRenderer/GroupRenderingControl/Control", "GroupRenderingControl", action, body, targetTag)
+}
+
+func (zp *ZonePlayer) SendHTControl(action, body, targetTag string) (string, error) {
+	return zp.sendCommand("/HTControl/Control", "HTControl", action, body, targetTag)
+}
+
+func (zp *ZonePlayer) SendMusicServices(action, body, targetTag string) (string, error) {
+	return zp.sendCommand("/MusicServices/Control", "MusicServices", action, body, targetTag)
+}
+
+func (zp *ZonePlayer) SendQPlay(action, body, targetTag string) (string, error) {
+	return zp.sendCommand("/QPlay/Control", "QPlay", action, body, targetTag)
+}
+
+func (zp *ZonePlayer) SendQueue(action, body, targetTag string) (string, error) {
+	return zp.sendCommand("/MediaRenderer/Queue/Control", "Queue", action, body, targetTag)
+}
+
+func (zp *ZonePlayer) SendRenderingControl(action, body, targetTag string) (string, error) {
+	return zp.sendCommand("/MediaRenderer/RenderingControl/Control", "RenderingControl", action, body, targetTag)
+}
+
+func (zp *ZonePlayer) SendSystemProperties(action, body, targetTag string) (string, error) {
+	return zp.sendCommand("/SystemProperties/Control", "SystemProperties", action, body, targetTag)
+}
+
+func (zp *ZonePlayer) SendVirtualLineIn(action, body, targetTag string) (string, error) {
+	return zp.sendCommand("/MediaRenderer/VirtualLineIn/Control", "VirtualLineIn", action, body, targetTag)
+}
+
+func (zp *ZonePlayer) SendZoneGroupTopology(action, body, targetTag string) (string, error) {
+	return zp.sendCommand("/ZoneGroupTopology/Control", "ZoneGroupTopology", action, body, targetTag)
+}
+
+func (zp *ZonePlayer) sendCommand(uri string, endpoint string, action string, body string, targetTag string) (string, error) {
 	req, err := http.NewRequest(
 		"POST",
-		"http://"+zp.IpAddress.String()+":1400"+endpointUri,
-		strings.NewReader(`<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body><u:`+action+` xmlns:u="urn:schemas-upnp-org:service:`+endpoint+`:1">`+endpointBodyPrefix+body+`</u:`+action+`></s:Body></s:Envelope>`),
+		"http://"+zp.IpAddress.String()+":1400"+uri,
+		strings.NewReader(`<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body><u:`+action+` xmlns:u="urn:schemas-upnp-org:service:`+endpoint+`:1">`+body+`</u:`+action+`></s:Body></s:Envelope>`),
 	)
 	if err != nil {
 		return "", err
@@ -299,15 +334,12 @@ func (zp *ZonePlayer) sendCommand(endpoint string, action string, body string, t
 
 	if targetTag != "" {
 		return extractTag(resultStr, targetTag)
-	}
-
-	if resultStr != `<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body><u:`+action+`Response xmlns:u="urn:schemas-upnp-org:service:`+endpoint+`:1"></u:`+action+`Response></s:Body></s:Envelope>` {
+	} else if resultStr != `<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body><u:`+action+`Response xmlns:u="urn:schemas-upnp-org:service:`+endpoint+`:1"></u:`+action+`Response></s:Body></s:Envelope>` {
 		fmt.Print("\r\n" + resultStr)
 		fmt.Print("\r\n" + `<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body><u:` + action + `Response xmlns:u="urn:schemas-upnp-org:service:` + endpoint + `:1"></u:` + action + `Response></s:Body></s:Envelope>`)
 		fmt.Print("\r\n")
 		fmt.Print("\r\n")
 		return resultStr, ErrSonos.ErrUnexpectedResponse
 	}
-
 	return resultStr, nil
 }
