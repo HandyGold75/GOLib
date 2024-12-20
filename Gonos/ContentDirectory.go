@@ -40,7 +40,7 @@ func (zp *ZonePlayer) getContentDirectory(typ string, start int, count int) (con
 	if !ok {
 		return contentDirectorResponse{}, ErrSonos.ErrInvalidContentType
 	}
-	res, err := zp.sendCommand("ContentDirectory", "Browse", "<ObjectID>"+id+"</ObjectID><BrowseFlag>BrowseDirectChildren</BrowseFlag><Filter>dc:title,res,dc:creator,upnp:artist,upnp:album,upnp:albumArtURI</Filter><StartingIndex>"+strconv.Itoa(start)+"</StartingIndex><RequestedCount>"+strconv.Itoa(count)+"</RequestedCount><SortCriteria></SortCriteria>", "s:Body")
+	res, err := zp.SendContentDirectory( "Browse", "<ObjectID>"+id+"</ObjectID><BrowseFlag>BrowseDirectChildren</BrowseFlag><Filter>dc:title,res,dc:creator,upnp:artist,upnp:album,upnp:albumArtURI</Filter><StartingIndex>"+strconv.Itoa(start)+"</StartingIndex><RequestedCount>"+strconv.Itoa(count)+"</RequestedCount><SortCriteria></SortCriteria>", "s:Body")
 	if err != nil {
 		return contentDirectorResponse{}, err
 	}

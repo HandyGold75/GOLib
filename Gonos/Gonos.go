@@ -15,7 +15,10 @@ import (
 type (
 	command    struct{ Endpoint, Action, Body, ExpectedResponse, TargetTag string }
 	errSonos   struct{ ErrUnexpectedResponse, ErrInvalidIPAdress, ErrNoZonePlayerFound, ErrInvalidEndpoint, ErrInvalidContentType, ErrInvalidPlayMode error }
-	ZonePlayer struct{ IpAddress net.IP }
+	ZonePlayer struct{ 
+		IpAddress net.IP; 
+		// Channel should be one of: `Master`, `LF` or `RF`
+		Channel string }
 
 	TrackInfo struct {
 		QuePosition string
@@ -294,7 +297,7 @@ func (zp *ZonePlayer) SendQueue(action, body, targetTag string) (string, error) 
 }
 
 func (zp *ZonePlayer) SendRenderingControl(action, body, targetTag string) (string, error) {
-	return zp.sendCommand("/MediaRenderer/RenderingControl/Control", "RenderingControl", action, body, targetTag)
+	return zp.sendCommand("/MediaRenderer/RenderingControl/Control", "RenderingControl", action, "<InstanceID>0</InstanceID>"+body, targetTag)
 }
 
 func (zp *ZonePlayer) SendSystemProperties(action, body, targetTag string) (string, error) {

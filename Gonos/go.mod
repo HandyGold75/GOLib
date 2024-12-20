@@ -1,3 +1,3 @@
-module github.com/HandyGold75/GOLib/Gonos
+module Gonos
 
 go 1.23.3
