@@ -15,10 +15,12 @@ import (
 type (
 	command    struct{ Endpoint, Action, Body, ExpectedResponse, TargetTag string }
 	errSonos   struct{ ErrUnexpectedResponse, ErrInvalidIPAdress, ErrNoZonePlayerFound, ErrInvalidEndpoint, ErrInvalidContentType, ErrInvalidPlayMode error }
-	ZonePlayer struct{ 
-		IpAddress net.IP; 
+	ZonePlayer struct {
+		IpAddress net.IP
 		// Channel should be one of: `Master`, `LF` or `RF`
-		Channel string }
+		Channel string
+		Info    ZoneInfo
+	}
 
 	TrackInfo struct {
 		QuePosition string
@@ -162,7 +164,14 @@ func NewZonePlayer(ipAddress string) (*ZonePlayer, error) {
 	if ip == nil {
 		return &ZonePlayer{}, ErrSonos.ErrInvalidIPAdress
 	}
-	return &ZonePlayer{IpAddress: ip}, nil
+
+	zp := &ZonePlayer{IpAddress: ip}
+	info, err := zp.GetZoneInfo() // Make sure ZonePlayer is valid
+	if err != nil {
+		return &ZonePlayer{}, ErrSonos.ErrNoZonePlayerFound
+	}
+	zp.Info = info
+	return zp, nil
 }
 
 // Create new ZonePlayer using discovery controling a Sonos speaker. (TODO: Broken?)
@@ -234,9 +243,7 @@ func ScanZonePlayer(cidr string) ([]*ZonePlayer, error) {
 			if err != nil {
 				return
 			}
-			if _, err = zp.GetState(); err == nil {
-				zps = append(zps, zp)
-			}
+			zps = append(zps, zp)
 		}(ip.String())
 	}
 	wg.Wait()

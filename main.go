@@ -12,9 +12,10 @@ func main() {
 	}
 	zp := zps[0]
 
-	out, err := zp.GetEQDialogLevel()
+	out, err := zp.GetButtonState()
 	if err != nil {
-		panic(err)
+	fmt.Println(err)
+	fmt.Println()
 	}
 	fmt.Println(out)
 }
