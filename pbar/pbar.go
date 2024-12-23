@@ -60,7 +60,6 @@ func Log(msg string, format string, v ...any) {
 		msg = fmt.Sprintf("\r|%-"+strconv.Itoa(int(float64(width)/4)+1)+"v| %.1f%% (%v/%v) -> %v", visualProgressStr, progress*100, ActionsDone, ActionsTotal, msg)
 	} else {
 		msg = fmt.Sprintf("\r|%-"+strconv.Itoa(int(float64(width)/4)+1)+"v| %.1f%%", visualProgressStr, progress*100)
-
 	}
 
 	fmt.Printf("\r%"+strconv.Itoa(width)+"v", "")

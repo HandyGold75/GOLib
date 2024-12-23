@@ -31,21 +31,19 @@ type (
 	errScheduler struct{ ErrInvalidMonths, ErrInvalidWeeks, ErrInvalidDays, ErrInvalidHours, ErrInvalidMinutes, ErrResolveMonth, ErrResolveWeek, ErrResolveDay, ErrResolveHour, ErrResolveMinute error }
 )
 
-var (
-	// All errors that can be raised by scheduler
-	ErrScheduler = errScheduler{
-		ErrInvalidMonths:  errors.New("invalid value in months, valid values are [1-12]"),
-		ErrInvalidWeeks:   errors.New("invalid value in weeks, valid values are [1-5]"),
-		ErrInvalidDays:    errors.New("invalid value in days, valid values are [0-6]"),
-		ErrInvalidHours:   errors.New("invalid value in hours, valid values are [0-23]"),
-		ErrInvalidMinutes: errors.New("invalid value in minutes, valid values are [0-59]"),
-		ErrResolveMonth:   errors.New("unable to resolve target month"),
-		ErrResolveWeek:    errors.New("unable to resolve target week"),
-		ErrResolveDay:     errors.New("unable to resolve target day"),
-		ErrResolveHour:    errors.New("unable to resolve target hour"),
-		ErrResolveMinute:  errors.New("unable to resolve target minute"),
-	}
-)
+// All errors that can be raised by scheduler
+var ErrScheduler = errScheduler{
+	ErrInvalidMonths:  errors.New("invalid value in months, valid values are [1-12]"),
+	ErrInvalidWeeks:   errors.New("invalid value in weeks, valid values are [1-5]"),
+	ErrInvalidDays:    errors.New("invalid value in days, valid values are [0-6]"),
+	ErrInvalidHours:   errors.New("invalid value in hours, valid values are [0-23]"),
+	ErrInvalidMinutes: errors.New("invalid value in minutes, valid values are [0-59]"),
+	ErrResolveMonth:   errors.New("unable to resolve target month"),
+	ErrResolveWeek:    errors.New("unable to resolve target week"),
+	ErrResolveDay:     errors.New("unable to resolve target day"),
+	ErrResolveHour:    errors.New("unable to resolve target hour"),
+	ErrResolveMinute:  errors.New("unable to resolve target minute"),
+}
 
 func verifySceduleData(scedule *Scedule) error {
 	if i := slices.IndexFunc(scedule.Months, func(v int) bool { return v < 1 || v > 12 }); i != -1 {
