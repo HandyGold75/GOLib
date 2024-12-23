@@ -17,58 +17,12 @@ type (
 	errSonos   struct{ ErrUnexpectedResponse, ErrInvalidIPAdress, ErrNoZonePlayerFound, ErrInvalidEndpoint, ErrInvalidContentType, ErrInvalidPlayMode error }
 	ZonePlayer struct {
 		IpAddress net.IP
+		// GetZoneInfo call is made to confirm if the requested ZonePlayer exists opon creation, might as well store the returned data.
+		ZoneInfo getZoneInfoResponse
 		// Channel should be one of: `Master`, `LF` or `RF`
 		Channel string
-		Info    ZoneInfo
-	}
-
-	TrackInfo struct {
-		QuePosition string
-		Duration    string
-		URI         string
-		Progress    string
-		AlbumArtURI string
-		Title       string
-		Class       string
-		Creator     string
-		Album       string
-	}
-	TrackInfoRaw struct {
-		XMLName       xml.Name `xml:"GetPositionInfoResponse"`
-		Track         string
-		TrackDuration string
-		TrackMetaData string
-		TrackURI      string
-		RelTime       string
-		AbsTime       string
-		RelCount      string
-		AbsCount      string
-	}
-
-	Que struct {
-		Count      string
-		TotalCount string
-		Tracks     []QueTrack
-	}
-	QueTrack struct {
-		AlbumArtURI string
-		Title       string
-		Class       string
-		Creator     string
-		Album       string
-	}
-
-	Favorites struct {
-		Count      string
-		TotalCount string
-		Favorites  []FavoritesItem
-	}
-	FavoritesItem struct {
-		AlbumArtURI string
-		Title       string
-		Description string
-		Class       string
-		Type        string
+		// Play speed usually `1`, can be a fraction of 1 Allowed values: `1`
+		Speed int
 	}
 )
 
@@ -97,24 +51,6 @@ var ContentTypes = map[string]string{
 	"radio shows":     "R:0/1",
 	"queue":           "Q:", // Maybe Q:0 ??
 }
-
-var Playmodes = map[string][3]bool{
-	// "MODE": [2]bool{shuffle, repeat, repeat_one}
-	"NORMAL":             {false, false, false},
-	"SHUFFLE_NOREPEAT":   {true, false, false},
-	"SHUFFLE":            {true, true, false},
-	"REPEAT_ALL":         {false, true, false},
-	"SHUFFLE_REPEAT_ONE": {true, false, true},
-	"REPEAT_ONE":         {false, false, true},
-}
-
-var PlaymodesReversed = func() map[[3]bool]string {
-	PMS := map[[3]bool]string{}
-	for k, v := range Playmodes {
-		PMS[v] = k
-	}
-	return PMS
-}()
 
 func unmarshalMetaData[T any](data string, v T) error {
 	data = strings.ReplaceAll(data, "&apos;", "'")
@@ -165,12 +101,12 @@ func NewZonePlayer(ipAddress string) (*ZonePlayer, error) {
 		return &ZonePlayer{}, ErrSonos.ErrInvalidIPAdress
 	}
 
-	zp := &ZonePlayer{IpAddress: ip}
-	info, err := zp.GetZoneInfo() // Make sure ZonePlayer is valid
+	zp := &ZonePlayer{IpAddress: ip, Channel: "Master", Speed: 1}
+	info, err := zp.GetZoneInfo()
 	if err != nil {
 		return &ZonePlayer{}, ErrSonos.ErrNoZonePlayerFound
 	}
-	zp.Info = info
+	zp.ZoneInfo = info
 	return zp, nil
 }
 
@@ -256,7 +192,7 @@ func ScanZonePlayer(cidr string) ([]*ZonePlayer, error) {
 }
 
 func (zp *ZonePlayer) SendAVTransport(action, body, targetTag string) (string, error) {
-	return zp.sendCommand("/MediaRenderer/AVTransport/Control", "AVTransport", action, body, targetTag)
+	return zp.sendCommand("/MediaRenderer/AVTransport/Control", "AVTransport", action, "<InstanceID>0</InstanceID>"+body, targetTag)
 }
 
 func (zp *ZonePlayer) SendAlarmClock(action, body, targetTag string) (string, error) {

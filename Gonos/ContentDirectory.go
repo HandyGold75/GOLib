@@ -5,35 +5,61 @@ import (
 	"strconv"
 )
 
-type queMetaData struct {
-	XMLName     xml.Name `xml:"item"`
-	Res         string   `xml:"res"`
-	AlbumArtUri string   `xml:"albumArtURI"`
-	Title       string   `xml:"title"`
-	Class       string   `xml:"class"`
-	Creator     string   `xml:"creator"`
-	Album       string   `xml:"album"`
-}
+type (
+	Que struct {
+		Count      string
+		TotalCount string
+		Tracks     []QueTrack
+	}
+	QueTrack struct {
+		AlbumArtURI string
+		Title       string
+		Class       string
+		Creator     string
+		Album       string
+	}
+	queMetaData struct {
+		XMLName     xml.Name `xml:"item"`
+		Res         string   `xml:"res"`
+		AlbumArtUri string   `xml:"albumArtURI"`
+		Title       string   `xml:"title"`
+		Class       string   `xml:"class"`
+		Creator     string   `xml:"creator"`
+		Album       string   `xml:"album"`
+	}
 
-type favoritesMetaData struct {
-	XMLName     xml.Name `xml:"item"`
-	Title       string   `xml:"title"`
-	Class       string   `xml:"class"`
-	Ordinal     string   `xml:"ordinal"`
-	Res         string   `xml:"res"`
-	AlbumArtUri string   `xml:"albumArtURI"`
-	Type        string   `xml:"type"`
-	Description string   `xml:"description"`
-	ResMD       string   `xml:"resMD"`
-}
+	Favorites struct {
+		Count      string
+		TotalCount string
+		Favorites  []FavoritesItem
+	}
+	FavoritesItem struct {
+		AlbumArtURI string
+		Title       string
+		Description string
+		Class       string
+		Type        string
+	}
+	favoritesMetaData struct {
+		XMLName     xml.Name `xml:"item"`
+		Title       string   `xml:"title"`
+		Class       string   `xml:"class"`
+		Ordinal     string   `xml:"ordinal"`
+		Res         string   `xml:"res"`
+		AlbumArtUri string   `xml:"albumArtURI"`
+		Type        string   `xml:"type"`
+		Description string   `xml:"description"`
+		ResMD       string   `xml:"resMD"`
+	}
 
-type contentDirectorResponse struct {
-	XMLName        xml.Name `xml:"BrowseResponse"`
-	Result         string
-	NumberReturned string
-	TotalMatches   string
-	UpdateID       string
-}
+	contentDirectorResponse struct {
+		XMLName        xml.Name `xml:"BrowseResponse"`
+		Result         string
+		NumberReturned string
+		TotalMatches   string
+		UpdateID       string
+	}
+)
 
 func (zp *ZonePlayer) getContentDirectory(typ string, start int, count int) (contentDirectorResponse, error) {
 	id, ok := ContentTypes[typ]

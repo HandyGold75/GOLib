@@ -8,7 +8,7 @@ import (
 )
 
 type (
-	ZoneInfo struct {
+	getZoneInfoResponse struct {
 		XMLName                xml.Name `xml:"GetZoneInfoResponse"`
 		SerialNumber           string
 		SoftwareVersion        string
@@ -18,8 +18,9 @@ type (
 		MACAddress             string
 		CopyrightInfo          string
 		ExtraInfo              string
-		HTAudioIn              int
-		Flags                  int
+		// SPDIF input, 0 not connected / 2 stereo / 7 Dolby 2.0 / 18 dolby 5.1 / 21 not listening / 22 silence
+		HTAudioIn int
+		Flags     int
 	}
 )
 
@@ -111,32 +112,32 @@ func (zp *ZonePlayer) GetUseAutoplayVolume(source string) (bool, error) {
 }
 
 // TODO: Test
-func (zp *ZonePlayer) GetZoneAttributeName() (string, error) {
+func (zp *ZonePlayer) GetZoneName() (string, error) {
 	return zp.SendDeviceProperties("GetZoneAttributes", "", "CurrentZoneName")
 }
 
 // TODO: Test
-func (zp *ZonePlayer) GetZoneAttributeIcon() (string, error) {
+func (zp *ZonePlayer) GetIcon() (string, error) {
 	return zp.SendDeviceProperties("GetZoneAttributes", "", "CurrentIcon")
 }
 
 // TODO: Test
-func (zp *ZonePlayer) GetZoneAttributeConfiguration() (string, error) {
+func (zp *ZonePlayer) GetConfiguration() (string, error) {
 	return zp.SendDeviceProperties("GetZoneAttributes", "", "CurrentConfiguration")
 }
 
 // TODO: Test
-func (zp *ZonePlayer) GetZoneAttributeTargetRoomName() (string, error) {
+func (zp *ZonePlayer) GetTargetRoomName() (string, error) {
 	return zp.SendDeviceProperties("GetZoneAttributes", "", "CurrentTargetRoomName")
 }
 
 // TODO: Test
-func (zp *ZonePlayer) GetZoneInfo() (ZoneInfo, error) {
+func (zp *ZonePlayer) GetZoneInfo() (getZoneInfoResponse, error) {
 	res, err := zp.SendDeviceProperties("GetZoneInfo", "", "s:Body")
 	if err != nil {
-		return ZoneInfo{}, err
+		return getZoneInfoResponse{}, err
 	}
-	data := ZoneInfo{}
+	data := getZoneInfoResponse{}
 	err = xml.Unmarshal([]byte(res), &data)
 	return data, err
 }
@@ -154,8 +155,8 @@ func (zp *ZonePlayer) RemoveHTSatellite(satRoomUUID string) error {
 }
 
 // TODO: Test
-func (zp *ZonePlayer) RoomDetectionStartChirping(channel int, duration int, chirpIfPlayingSwappableAudio bool) (int, error) {
-	res, err := zp.SendDeviceProperties("RoomDetectionStartChirping", "<Channel>"+strconv.Itoa(channel)+"</Channel><DurationMilliseconds>"+strconv.Itoa(duration)+"</DurationMilliseconds><ChirpIfPlayingSwappableAudio>"+boolTo10(chirpIfPlayingSwappableAudio)+"</ChirpIfPlayingSwappableAudio>", "PlayId")
+func (zp *ZonePlayer) RoomDetectionStartChirping(channel int, milliseconds int, chirpIfPlayingSwappableAudio bool) (int, error) {
+	res, err := zp.SendDeviceProperties("RoomDetectionStartChirping", "<Channel>"+strconv.Itoa(channel)+"</Channel><DurationMilliseconds>"+strconv.Itoa(milliseconds)+"</DurationMilliseconds><ChirpIfPlayingSwappableAudio>"+boolTo10(chirpIfPlayingSwappableAudio)+"</ChirpIfPlayingSwappableAudio>", "PlayId")
 	if err != nil {
 		return 0, err
 	}
@@ -211,25 +212,25 @@ func (zp *ZonePlayer) SetUseAutoplayVolume(state bool, source string) error {
 }
 
 // TODO: Test
-func (zp *ZonePlayer) SetZoneAttributeZoneName(zoneName string) error {
+func (zp *ZonePlayer) SetZoneName(zoneName string) error {
 	_, err := zp.SendDeviceProperties("SetZoneAttributes", "<DesiredZoneName>"+zoneName+"</DesiredZoneName>", "")
 	return err
 }
 
 // TODO: Test
-func (zp *ZonePlayer) SetZoneAttributeIcon(icon string) error {
+func (zp *ZonePlayer) SetIcon(icon string) error {
 	_, err := zp.SendDeviceProperties("SetZoneAttributes", "<DesiredIcon>"+icon+"</DesiredIcon>", "")
 	return err
 }
 
 // TODO: Test
-func (zp *ZonePlayer) SetZoneAttributeConfiguration(configuration string) error {
+func (zp *ZonePlayer) SetConfiguration(configuration string) error {
 	_, err := zp.SendDeviceProperties("SetZoneAttributes", "<DesiredConfiguration>"+configuration+"</DesiredConfiguration>", "")
 	return err
 }
 
 // TODO: Test
-func (zp *ZonePlayer) SetZoneAttributeTargetRoomName(targetRoomName string) error {
+func (zp *ZonePlayer) SetTargetRoomName(targetRoomName string) error {
 	_, err := zp.SendDeviceProperties("SetZoneAttributes", "<DesiredTargetRoomName>"+targetRoomName+"</DesiredTargetRoomName>", "")
 	return err
 }

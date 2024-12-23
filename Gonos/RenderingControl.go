@@ -8,20 +8,8 @@ import (
 )
 
 type (
-	RoomCalibration struct {
-		XMLName                  xml.Name `xml:"item"`
-		RoomCalibrationEnabled   bool
-		RoomCalibrationAvailable bool
-	}
-
-	VolumeDBRange struct {
-		XMLName  xml.Name `xml:"item"`
-		MinValue int
-		MaxValue int
-	}
-
-	BasicEQ struct {
-		XMLName     xml.Name `xml:"item"`
+	resetBasicEQResponse struct {
+		XMLName     xml.Name `xml:"ResetBasicEQResponse"`
 		Bass        int
 		Treble      int
 		Loudness    bool
@@ -124,14 +112,20 @@ func (zp *ZonePlayer) GetOutputFixed() (bool, error) {
 }
 
 // TODO: Test
-func (zp *ZonePlayer) GetRoomCalibrationStatus() (RoomCalibration, error) {
+func (zp *ZonePlayer) GetRoomCalibrationStatus() (bool, bool, error) {
 	res, err := zp.SendRenderingControl("GetRoomCalibrationStatus", "", "s:Body")
 	if err != nil {
-		return RoomCalibration{}, err
+		return false, false, err
 	}
-	data := RoomCalibration{}
-	err = xml.Unmarshal([]byte(res), &data)
-	return data, err
+	enabled, err := extractTag(res, "RoomCalibrationEnabled")
+	if err != nil {
+		return false, false, err
+	}
+	available, err := extractTag(res, "RoomCalibrationAvailable")
+	if err != nil {
+		return false, false, err
+	}
+	return enabled == "1", available == "1", err
 }
 
 // TODO: Test
@@ -168,14 +162,28 @@ func (zp *ZonePlayer) GetVolumeDB() (int, error) {
 }
 
 // TODO: Test
-func (zp *ZonePlayer) GetVolumeDBRange() (VolumeDBRange, error) {
+func (zp *ZonePlayer) GetVolumeDBRange() (int, int, error) {
 	res, err := zp.SendRenderingControl("GetVolumeDBRange", "<Channel>"+zp.Channel+"</Channel>", "s:Body")
 	if err != nil {
-		return VolumeDBRange{}, err
+		return 0, 0, err
 	}
-	data := VolumeDBRange{}
-	err = xml.Unmarshal([]byte(res), &data)
-	return data, err
+	minValue, err := extractTag(res, "MinValue")
+	if err != nil {
+		return 0, 0, err
+	}
+	maxValue, err := extractTag(res, "MaxValue")
+	if err != nil {
+		return 0, 0, err
+	}
+	minValueInt, err := strconv.Atoi(minValue)
+	if err != nil {
+		return 0, 0, err
+	}
+	maxValueInt, err := strconv.Atoi(maxValue)
+	if err != nil {
+		return 0, 0, err
+	}
+	return minValueInt, maxValueInt, err
 }
 
 // TODO: Test
@@ -206,12 +214,12 @@ func (zp *ZonePlayer) RampToVolumeAutoPlay(volume int, resetVolumeAfter bool, Pr
 }
 
 // TODO: Test
-func (zp *ZonePlayer) ResetBasicEQ() (BasicEQ, error) {
+func (zp *ZonePlayer) ResetBasicEQ() (resetBasicEQResponse, error) {
 	res, err := zp.SendRenderingControl("ResetBasicEQ", "", "s:Body")
 	if err != nil {
-		return BasicEQ{}, err
+		return resetBasicEQResponse{}, err
 	}
-	data := BasicEQ{}
+	data := resetBasicEQResponse{}
 	err = xml.Unmarshal([]byte(res), &data)
 	return data, err
 }
