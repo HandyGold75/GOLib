@@ -8,80 +8,6 @@ import (
 	"time"
 )
 
-// TrackInfo struct {
-// 	QuePosition string
-// 	Duration    string
-// 	URI         string
-// 	Progress    string
-// 	AlbumArtURI string
-// 	Title       string
-// 	Class       string
-// 	Creator     string
-// 	Album       string
-// }
-// TrackInfoRaw struct {
-// 	XMLName       xml.Name `xml:"GetPositionInfoResponse"`
-// 	Track         string
-// 	TrackDuration string
-// 	TrackMetaData string
-// 	TrackURI      string
-// 	RelTime       string
-// 	AbsTime       string
-// 	RelCount      string
-// 	AbsCount      string
-// }
-
-// type trackMetaData struct {
-// 	XMLName       xml.Name `xml:"item"`
-// 	Res           string   `xml:"res"`
-// 	StreamContent string   `xml:"streamContent"`
-// 	AlbumArtUri   string   `xml:"albumArtURI"`
-// 	Title         string   `xml:"title"`
-// 	Class         string   `xml:"class"`
-// 	Creator       string   `xml:"creator"`
-// 	Album         string   `xml:"album"`
-// }
-
-// func (zp *ZonePlayer) GetTrackInfo() (*TrackInfo, error) {
-// 	info, err := zp.GetTrackInfoRaw()
-// 	if err != nil {
-// 		return &TrackInfo{}, err
-// 	}
-// 	metadata := trackMetaData{}
-// 	err = unmarshalMetaData(info.TrackMetaData, &metadata)
-// 	if err != nil {
-// 		return &TrackInfo{}, err
-// 	}
-// 	return &TrackInfo{
-// 		QuePosition: info.Track,
-// 		Duration:    info.TrackDuration,
-// 		URI:         info.TrackURI,
-// 		Progress:    info.RelTime,
-// 		AlbumArtURI: "http://" + zp.IpAddress.String() + ":1400" + metadata.AlbumArtUri,
-// 		Title:       metadata.Title,
-// 		Class:       metadata.Class,
-// 		Creator:     metadata.Creator,
-// 		Album:       metadata.Album,
-// 	}, nil
-// }
-
-// func (zp *ZonePlayer) GetTrackInfoRaw() (TrackInfoRaw, error) {
-// 	res, err := zp.SendAVTransport("GetPositionInfo", "<InstanceID>0</InstanceID>", "s:Body")
-// 	if err != nil {
-// 		return TrackInfoRaw{}, err
-// 	}
-// 	trackInfoRaw := TrackInfoRaw{}
-// 	if err := xml.Unmarshal([]byte(res), &trackInfoRaw); err != nil {
-// 		return TrackInfoRaw{}, err
-// 	}
-// 	return trackInfoRaw, nil
-// }
-
-// func (zp *ZonePlayer) RemoveFromQue(track int) error {
-// 	_, err := zp.SendAVTransport("RemoveTrackFromQueue", "<InstanceID>0</InstanceID><ObjectID>Q:0/"+strconv.Itoa(max(1, track))+"</ObjectID><UpdateID>0</UpdateID>", "")
-// 	return err
-// }
-
 type (
 	addMultipleURIsToQueueResponse struct {
 		XMLName                  xml.Name `xml:"AddMultipleURIsToQueueResponse"`
@@ -125,13 +51,21 @@ type (
 		MediaDuration string
 		CurrentURI    string
 		// Embedded XML
-		CurrentURIMetaData string
-		NextURI            string
+		CurrentURIMetaData       string
+		CurrentURIMetaDataParsed struct {
+			// TODO: Fill in
+		}
+
+		NextURI string
 		// Embedded XML
 		NextURIMetaData string
-		// Possible values: NONE / NETWORK
+		// Possible values: `NONE` / `NETWORK`
+		NextURIMetaDataParsed struct {
+			// TODO: Fill in
+		}
+
 		PlayMedium string
-		// Possible values: NONE
+		// Possible values: `NONE`
 		RecordMedium string
 		WriteStatus  string
 	}
@@ -140,12 +74,22 @@ type (
 		Track         int
 		TrackDuration string
 		// Embedded XML
-		TrackMetaData string
-		TrackURI      string
-		RelTime       string
-		AbsTime       string
-		RelCount      int
-		AbsCount      int
+		TrackMetaData       string
+		TrackMetaDataParsed struct {
+			XMLName       xml.Name `xml:"item"`
+			Res           string   `xml:"res"`
+			StreamContent string   `xml:"streamContent"`
+			AlbumArtUri   string   `xml:"albumArtURI"`
+			Title         string   `xml:"title"`
+			Class         string   `xml:"class"`
+			Creator       string   `xml:"creator"`
+			Album         string   `xml:"album"`
+		}
+		TrackURI string
+		RelTime  string
+		AbsTime  string
+		RelCount int
+		AbsCount int
 	}
 	getRemainingSleepTimerDurationResponse struct {
 		XMLName xml.Name `xml:"GetRemainingSleepTimerDurationResponse"`
@@ -159,6 +103,20 @@ type (
 		GroupID         string
 		LoggedStartTime string
 	}
+	getTransportInfoResponse struct {
+		XMLName xml.Name `xml:"GetTransportInfoResponse"`
+		// Possible values: `STOPPED` / `PLAYING` / `PAUSED_PLAYBACK` / `TRANSITIONING`
+		CurrentTransportState  string
+		CurrentTransportStatus string
+		// Possible values: `1`
+		CurrentSpeed string
+	}
+	getTransportSettingsResponse struct {
+		XMLName xml.Name `xml:"GetTransportSettingsResponse"`
+		// Possible values: `NORMAL` / `REPEAT_ALL` / `REPEAT_ONE` / `SHUFFLE_NOREPEAT` / `SHUFFLE` / `SHUFFLE_REPEAT_ONE`
+		PlayMode       string
+		RecQualityMode string
+	}
 	reorderTracksInSavedQueueResponse struct {
 		XMLName           xml.Name `xml:"ReorderTracksInSavedQueueResponse"`
 		QueueLengthChange int
@@ -167,27 +125,27 @@ type (
 	}
 )
 
-var Playmodes = map[string][3]bool{
-	// "MODE": [2]bool{shuffle, repeat, repeat_one}
-	"NORMAL":             {false, false, false},
-	"REPEAT_ALL":         {false, true, false},
-	"REPEAT_ONE":         {false, false, true},
-	"SHUFFLE_NOREPEAT":   {true, false, false},
-	"SHUFFLE":            {true, true, false},
-	"SHUFFLE_REPEAT_ONE": {true, false, true},
+var PlaymodesMap = map[string][3]bool{
+	// "MODE": [2]bool{shuffle, repeat, repeatOne}
+	Playmodes.Normal:          {false, false, false},
+	Playmodes.RepeatAll:       {false, true, false},
+	Playmodes.RepeatOne:       {false, false, true},
+	Playmodes.ShuffleNorepeat: {true, false, false},
+	Playmodes.Shuffle:         {true, true, false},
+	Playmodes.ShuffleRepeaOne: {true, false, true},
 }
 
-var PlaymodesReversed = func() map[[3]bool]string {
+var PlaymodesMapReversed = func() map[[3]bool]string {
 	PMS := map[[3]bool]string{}
-	for k, v := range Playmodes {
+	for k, v := range PlaymodesMap {
 		PMS[v] = k
 	}
 	return PMS
 }()
 
 // TODO: test
-func (zp *ZonePlayer) AddMultipleURIsToQueue(updateID int, numberOfURIs int, enqueuedURIs string, enqueuedURIsMetaData string, containerURI string, containerMetaData string, desiredFirstTrackNumberEnqueued int, enqueueAsNext bool) (addMultipleURIsToQueueResponse, error) {
-	res, err := zp.SendAVTransport("AddMultipleURIsToQueue", "<UpdateID>"+strconv.Itoa(updateID)+"</UpdateID><NumberOfURIs>"+strconv.Itoa(numberOfURIs)+"</NumberOfURIs><EnqueuedURIs>"+enqueuedURIs+"</EnqueuedURIs><EnqueuedURIsMetaData>"+enqueuedURIsMetaData+"</EnqueuedURIsMetaData><ContainerURI>"+containerURI+"</ContainerURI><ContainerMetaData>"+containerMetaData+"</ContainerMetaData><DesiredFirstTrackNumberEnqueued>"+strconv.Itoa(desiredFirstTrackNumberEnqueued)+"</DesiredFirstTrackNumberEnqueued><EnqueueAsNext>"+boolTo10(enqueueAsNext)+"</EnqueueAsNext>", "s:Body")
+func (zp *ZonePlayer) AddMultipleURIsToQueue(numberOfURIs int, enqueuedURIs string, enqueuedURIsMetaData string, containerURI string, containerMetaData string, desiredFirstTrackNumberEnqueued int, enqueueAsNext bool) (addMultipleURIsToQueueResponse, error) {
+	res, err := zp.SendAVTransport("AddMultipleURIsToQueue", "<UpdateID>"+strconv.Itoa(zp.Static.AVTransport.UpdateID)+"</UpdateID><NumberOfURIs>"+strconv.Itoa(numberOfURIs)+"</NumberOfURIs><EnqueuedURIs>"+enqueuedURIs+"</EnqueuedURIs><EnqueuedURIsMetaData>"+enqueuedURIsMetaData+"</EnqueuedURIsMetaData><ContainerURI>"+containerURI+"</ContainerURI><ContainerMetaData>"+containerMetaData+"</ContainerMetaData><DesiredFirstTrackNumberEnqueued>"+strconv.Itoa(desiredFirstTrackNumberEnqueued)+"</DesiredFirstTrackNumberEnqueued><EnqueueAsNext>"+boolTo10(enqueueAsNext)+"</EnqueueAsNext>", "s:Body")
 	if err != nil {
 		return addMultipleURIsToQueueResponse{}, err
 	}
@@ -207,9 +165,11 @@ func (zp *ZonePlayer) AddURIToQueue(enqueuedURI string, enqueuedURIMetaData stri
 	return data, err
 }
 
+// `contentType` should be one of `Gonos.ContentTypes.*`
+//
 // TODO: Test
-func (zp *ZonePlayer) AddURIToSavedQueue(objectID string, updateID int, enqueuedURI string, enqueuedURIMetaData string, addAtIndex int) (addURIToSavedQueueResponse, error) {
-	res, err := zp.SendAVTransport("AddURIToSavedQueue", "<ObjectID>"+objectID+"</ObjectID><UpdateID>"+strconv.Itoa(updateID)+"</UpdateID><EnqueuedURI>"+enqueuedURI+"</EnqueuedURI><EnqueuedURIMetaData>"+enqueuedURIMetaData+"</EnqueuedURIMetaData><AddAtIndex>"+strconv.Itoa(addAtIndex)+"</AddAtIndex>", "s:Body")
+func (zp *ZonePlayer) AddURIToSavedQueue(contentType string, enqueuedURI string, enqueuedURIMetaData string, addAtIndex int) (addURIToSavedQueueResponse, error) {
+	res, err := zp.SendAVTransport("AddURIToSavedQueue", "<ObjectID>"+contentType+"</ObjectID><UpdateID>"+strconv.Itoa(zp.Static.AVTransport.UpdateID)+"</UpdateID><EnqueuedURI>"+enqueuedURI+"</EnqueuedURI><EnqueuedURIMetaData>"+enqueuedURIMetaData+"</EnqueuedURIMetaData><AddAtIndex>"+strconv.Itoa(addAtIndex)+"</AddAtIndex>", "s:Body")
 	if err != nil {
 		return addURIToSavedQueueResponse{}, err
 	}
@@ -318,6 +278,14 @@ func (zp *ZonePlayer) GetMediaInfo() (getMediaInfoResponse, error) {
 	}
 	data := getMediaInfoResponse{}
 	err = xml.Unmarshal([]byte(res), &data)
+	if err != nil {
+		return getMediaInfoResponse{}, err
+	}
+	err = unmarshalMetaData(data.CurrentURIMetaData, &data.CurrentURIMetaDataParsed)
+	if err != nil {
+		return getMediaInfoResponse{}, err
+	}
+	err = unmarshalMetaData(data.NextURIMetaData, &data.NextURIMetaDataParsed)
 	return data, err
 }
 
@@ -329,6 +297,10 @@ func (zp *ZonePlayer) GetPositionInfo() (getPositionInfoResponse, error) {
 	}
 	data := getPositionInfoResponse{}
 	err = xml.Unmarshal([]byte(res), &data)
+	if err != nil {
+		return getPositionInfoResponse{}, err
+	}
+	err = unmarshalMetaData(data.TrackMetaData, &data.TrackMetaDataParsed)
 	return data, err
 }
 
@@ -355,55 +327,25 @@ func (zp *ZonePlayer) GetRunningAlarmProperties() (getRunningAlarmPropertiesResp
 }
 
 // TODO: Test
-func (zp *ZonePlayer) GetCurrentTransportStatus() (string, error) {
-	return zp.SendAVTransport("GetTransportInfo", "", "CurrentTransportStatus")
-}
-
-// TODO: Test
-func (zp *ZonePlayer) GetCurrentTransportState() (string, error) {
-	return zp.SendAVTransport("GetTransportInfo", "", "CurrentTransportState")
-}
-
-// TODO: Test
-func (zp *ZonePlayer) GetStop() (bool, error) {
-	state, err := zp.GetCurrentTransportState()
-	return state == "STOPPED", err
-}
-
-// TODO: Test
-func (zp *ZonePlayer) GetPlay() (bool, error) {
-	state, err := zp.GetCurrentTransportState()
-	return state == "PLAYING", err
-}
-
-// TODO: Test
-func (zp *ZonePlayer) GetPause() (bool, error) {
-	state, err := zp.GetCurrentTransportState()
-	return state == "PAUSED_PLAYBACK", err
-}
-
-// TODO: Test
-func (zp *ZonePlayer) GetTransitioning() (bool, error) {
-	state, err := zp.GetCurrentTransportState()
-	return state == "TRANSITIONING", err
-}
-
-// TODO: Test
-func (zp *ZonePlayer) GetRecQualityMode() (string, error) {
-	return zp.SendAVTransport("GetTransportSettings", "", "RecQualityMode")
-}
-
-// TODO: Test
-func (zp *ZonePlayer) GetPlayMode() (shuffle bool, repeat bool, repeat_one bool, err error) {
-	res, err := zp.SendAVTransport("GetTransportSettings", "", "PlayMode")
+func (zp *ZonePlayer) GetTransportInfo() (getTransportInfoResponse, error) {
+	res, err := zp.SendAVTransport("GetTransportInfo", "", "s:Body")
 	if err != nil {
-		return false, false, false, err
+		return getTransportInfoResponse{}, err
 	}
-	modeBools, ok := Playmodes[res]
-	if !ok {
-		return false, false, false, ErrSonos.ErrUnexpectedResponse
+	data := getTransportInfoResponse{}
+	err = xml.Unmarshal([]byte(res), &data)
+	return data, err
+}
+
+// TODO: Test
+func (zp *ZonePlayer) GetTransportSettings() (getTransportSettingsResponse, error) {
+	res, err := zp.SendAVTransport("GetTransportInfo", "", "s:Body")
+	if err != nil {
+		return getTransportSettingsResponse{}, err
 	}
-	return modeBools[0], modeBools[1], modeBools[2], nil
+	data := getTransportSettingsResponse{}
+	err = xml.Unmarshal([]byte(res), &data)
+	return data, err
 }
 
 // TODO: Test
@@ -426,7 +368,7 @@ func (zp *ZonePlayer) Pause() error {
 
 // TODO: Test
 func (zp *ZonePlayer) Play() error {
-	_, err := zp.SendAVTransport("Play", "<Speed>"+strconv.Itoa(zp.Speed)+"</Speed>", "")
+	_, err := zp.SendAVTransport("Play", "<Speed>"+strconv.Itoa(zp.Static.AVTransport.Speed)+"</Speed>", "")
 	return err
 }
 
@@ -442,16 +384,17 @@ func (zp *ZonePlayer) RemoveAllTracksFromQueue() error {
 	return err
 }
 
-// TODO: Check with old implementation
+// `contentType` should be one of `Gonos.ContentTypes.*`
+//
 // TODO: Test
-func (zp *ZonePlayer) RemoveTrackFromQueue(objectID string, updateID int) error {
-	_, err := zp.SendAVTransport("RemoveTrackFromQueue", "<ObjectID>"+objectID+"</ObjectID><UpdateID>"+strconv.Itoa(updateID)+"</UpdateID>", "")
+func (zp *ZonePlayer) RemoveTrackFromQueue(contentType string, track int) error {
+	_, err := zp.SendAVTransport("RemoveTrackFromQueue", "<ObjectID>"+contentType+"/"+strconv.Itoa(max(1, track))+"</ObjectID><UpdateID>"+strconv.Itoa(zp.Static.AVTransport.UpdateID)+"</UpdateID>", "")
 	return err
 }
 
 // TODO: Test
-func (zp *ZonePlayer) RemoveTrackRangeFromQueue(updateID int, startingIndex int, numberOfTracks int) (int, error) {
-	res, err := zp.SendAVTransport("RemoveTrackRangeFromQueue", "<UpdateID>"+strconv.Itoa(updateID)+"</UpdateID><StartingIndex>"+strconv.Itoa(startingIndex)+"</StartingIndex><NumberOfTracks>strconv.Itoa(numberOfTracks)</NumberOfTracks>", "NewUpdateID")
+func (zp *ZonePlayer) RemoveTrackRangeFromQueue(start int, count int) (int, error) {
+	res, err := zp.SendAVTransport("RemoveTrackRangeFromQueue", "<UpdateID>"+strconv.Itoa(zp.Static.AVTransport.UpdateID)+"</UpdateID><StartingIndex>"+strconv.Itoa(start)+"</StartingIndex><NumberOfTracks>"+strconv.Itoa(count)+"</NumberOfTracks>", "NewUpdateID")
 	if err != nil {
 		return 0, err
 	}
@@ -459,14 +402,16 @@ func (zp *ZonePlayer) RemoveTrackRangeFromQueue(updateID int, startingIndex int,
 }
 
 // TODO: Test
-func (zp *ZonePlayer) ReorderTracksInQueue(startingIndex int, numberOfTracks int, insertBefore int, updateID int) error {
-	_, err := zp.SendAVTransport("ReorderTracksInQueue", "<StartingIndex>"+strconv.Itoa(startingIndex)+"</StartingIndex><NumberOfTracks>"+strconv.Itoa(numberOfTracks)+"</NumberOfTracks><InsertBefore>"+strconv.Itoa(insertBefore)+"</InsertBefore><UpdateID>"+strconv.Itoa(updateID)+"</UpdateID>", "")
+func (zp *ZonePlayer) ReorderTracksInQueue(start int, count int, insertBefore int) error {
+	_, err := zp.SendAVTransport("ReorderTracksInQueue", "<StartingIndex>"+strconv.Itoa(start)+"</StartingIndex><NumberOfTracks>"+strconv.Itoa(count)+"</NumberOfTracks><InsertBefore>"+strconv.Itoa(insertBefore)+"</InsertBefore><UpdateID>"+strconv.Itoa(zp.Static.AVTransport.UpdateID)+"</UpdateID>", "")
 	return err
 }
 
+// `contentType` should be one of `Gonos.ContentTypes.*`
+//
 // TODO: Test
-func (zp *ZonePlayer) ReorderTracksInSavedQueue(objectID string, updateID int, trackList string, newPositionList string) (reorderTracksInSavedQueueResponse, error) {
-	res, err := zp.SendAVTransport("ReorderTracksInSavedQueue", "<ObjectID>"+objectID+"</ObjectID><UpdateID>"+strconv.Itoa(updateID)+"</UpdateID><TrackList>"+trackList+"</TrackList><NewPositionList>"+newPositionList+"</NewPositionList>", "")
+func (zp *ZonePlayer) ReorderTracksInSavedQueue(contentType string, trackList string, newPositionList string) (reorderTracksInSavedQueueResponse, error) {
+	res, err := zp.SendAVTransport("ReorderTracksInSavedQueue", "<ObjectID>"+contentType+"</ObjectID><UpdateID>"+strconv.Itoa(zp.Static.AVTransport.UpdateID)+"</UpdateID><TrackList>"+trackList+"</TrackList><NewPositionList>"+newPositionList+"</NewPositionList>", "")
 	if err != nil {
 		return reorderTracksInSavedQueueResponse{}, err
 	}
@@ -481,31 +426,16 @@ func (zp *ZonePlayer) RunAlarm(alarmID int, loggedStartTime string, duration str
 	return err
 }
 
+// `contentType` should be one of `Gonos.ContentTypes.*`
+//
 // TODO: Test
-func (zp *ZonePlayer) SaveQueue(title string, objectID string) (string, error) {
-	return zp.SendAVTransport("SaveQueue", "<Title>"+title+"</Title><ObjectID>"+objectID+"</ObjectID>", "AssignedObjectID")
+func (zp *ZonePlayer) SaveQueue(title string) (string, error) {
+	return zp.SendAVTransport("SaveQueue", "<Title>"+title+"</Title><ObjectID></ObjectID>", "AssignedObjectID")
 }
 
 // TODO: Test
-func (zp *ZonePlayer) SeekTrack(track int) error {
-	_, err := zp.SendAVTransport("Seek", "<Unit>TRACK_NR</Unit><Target>"+strconv.Itoa(max(1, track))+"</Target>", "")
-	return err
-}
-
-// TODO: Test
-func (zp *ZonePlayer) SeekTime(seconds int) error {
-	_, err := zp.SendAVTransport("Seek", "<Unit>REL_TIME</Unit><Target>"+time.Time.Add(time.Time{}, time.Second*time.Duration(max(0, seconds))).Format("15:04:05")+"</Target>", "")
-	return err
-}
-
-// TODO: Test
-func (zp *ZonePlayer) SeekTimeDelta(seconds int) error {
-	factor := "+"
-	if seconds < 0 {
-		seconds = -seconds
-		factor = "-"
-	}
-	_, err := zp.SendAVTransport("Seek", "<Unit>TIME_DELTA</Unit><Target>"+factor+time.Time.Add(time.Time{}, time.Second*time.Duration(seconds)).Format("15:04:05")+"</Target>", "")
+func (zp *ZonePlayer) Seek(unit string, target string) error {
+	_, err := zp.SendAVTransport("Seek", "<Unit>"+unit+"</Unit><Target>"+target+"</Target>", "")
 	return err
 }
 
@@ -516,8 +446,8 @@ func (zp *ZonePlayer) SetAVTransportURI(currentURI string, currentURIMetaData st
 }
 
 // TODO: Test
-func (zp *ZonePlayer) SetCrossfadeMode(crossfadeMode bool) error {
-	_, err := zp.SendAVTransport("SetCrossfadeMode", "<CrossfadeMode>"+boolTo10(crossfadeMode)+"</CrossfadeMode>", "")
+func (zp *ZonePlayer) SetCrossfadeMode(state bool) error {
+	_, err := zp.SendAVTransport("SetCrossfadeMode", "<CrossfadeMode>"+boolTo10(state)+"</CrossfadeMode>", "")
 	return err
 }
 
@@ -528,8 +458,8 @@ func (zp *ZonePlayer) SetNextAVTransportURI(nextURI string, nextURIMetaData stri
 }
 
 // TODO: test
-func (zp *ZonePlayer) SetPlayMode(shuffle bool, repeat bool, repeat_one bool) error {
-	mode, ok := PlaymodesReversed[[3]bool{shuffle, repeat, repeat_one}]
+func (zp *ZonePlayer) SetPlayMode(shuffle bool, repeat bool, repeatOne bool) error {
+	mode, ok := PlaymodesMapReversed[[3]bool{shuffle, repeat, repeatOne}]
 	if !ok {
 		return ErrSonos.ErrInvalidPlayMode
 	}
@@ -553,49 +483,4 @@ func (zp *ZonePlayer) StartAutoplay(programURI string, programMetaData string, v
 func (zp *ZonePlayer) Stop() error {
 	_, err := zp.SendAVTransport("Stop", "", "")
 	return err
-}
-
-// TODO: test
-func (zp *ZonePlayer) GetShuffle() (bool, error) {
-	shuffle, _, _, err := zp.GetPlayMode()
-	return shuffle, err
-}
-
-// TODO: test
-func (zp *ZonePlayer) SetShuffle(state bool) error {
-	_, repeat, repeat_one, err := zp.GetPlayMode()
-	if err != nil {
-		return err
-	}
-	return zp.SetPlayMode(state, repeat, repeat_one)
-}
-
-// TODO: test
-func (zp *ZonePlayer) GetRepeat() (bool, error) {
-	_, repeat, _, err := zp.GetPlayMode()
-	return repeat, err
-}
-
-// TODO: test
-func (zp *ZonePlayer) SetRepeat(state bool) error {
-	shuffle, _, repeat_one, err := zp.GetPlayMode()
-	if err != nil {
-		return err
-	}
-	return zp.SetPlayMode(shuffle, state, repeat_one && !state)
-}
-
-// TODO: test
-func (zp *ZonePlayer) GetRepeatOne() (bool, error) {
-	_, _, repeat_one, err := zp.GetPlayMode()
-	return repeat_one, err
-}
-
-// TODO: test
-func (zp *ZonePlayer) SetRepeatOne(state bool) error {
-	shuffle, repeat, _, err := zp.GetPlayMode()
-	if err != nil {
-		return err
-	}
-	return zp.SetPlayMode(shuffle, repeat && !state, state)
 }
