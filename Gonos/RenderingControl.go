@@ -28,63 +28,8 @@ func (zp *ZonePlayer) GetBass() (int, error) {
 }
 
 // TODO: Test
-func (zp *ZonePlayer) GetEQDialogLevel() (bool, error) {
-	res, err := zp.SendRenderingControl("GetEQ", "<EQType>EQDialogLevel</EQType>", "CurrentValue")
-	return res == "1", err
-}
-
-// TODO: Test
-func (zp *ZonePlayer) GetEQMusicSurroundLevel() (int, error) {
-	res, err := zp.SendRenderingControl("GetEQ", "<EQType>EQMusicSurroundLevel</EQType>", "CurrentValue")
-	if err != nil {
-		return 0, err
-	}
-	return strconv.Atoi(res)
-}
-
-// TODO: Test
-func (zp *ZonePlayer) GetEQNightMode() (bool, error) {
-	res, err := zp.SendRenderingControl("GetEQ", "<EQType>EQNightMode</EQType>", "CurrentValue")
-	return res == "1", err
-}
-
-// TODO: Test
-func (zp *ZonePlayer) GetEQSubGain() (int, error) {
-	res, err := zp.SendRenderingControl("GetEQ", "<EQType>EQSubGain</EQType>", "CurrentValue")
-	if err != nil {
-		return 0, err
-	}
-	return strconv.Atoi(res)
-}
-
-// TODO: Test
-func (zp *ZonePlayer) GetEQSurroundEnable() (bool, error) {
-	res, err := zp.SendRenderingControl("GetEQ", "<EQType>EQSurroundEnable</EQType>", "CurrentValue")
-	return res == "1", err
-}
-
-// TODO: Test
-func (zp *ZonePlayer) GetEQSurroundLevel() (int, error) {
-	res, err := zp.SendRenderingControl("GetEQ", "<EQType>EQSurroundLevel</EQType>", "CurrentValue")
-	if err != nil {
-		return 0, err
-	}
-	return strconv.Atoi(res)
-}
-
-// TODO: Test
-func (zp *ZonePlayer) GetEQSurroundMode() (bool, error) {
-	res, err := zp.SendRenderingControl("GetEQ", "<EQType>EQSurroundMode</EQType>", "CurrentValue")
-	return res == "1", err
-}
-
-// TODO: Test
-func (zp *ZonePlayer) GetEQHeightChannelLevel() (int, error) {
-	res, err := zp.SendRenderingControl("GetEQ", "<EQType>EQHeightChannelLevel</EQType>", "CurrentValue")
-	if err != nil {
-		return 0, err
-	}
-	return strconv.Atoi(res)
+func (zp *ZonePlayer) GetEQ(eQType string) (string, error) {
+	return zp.SendRenderingControl("GetEQ", "<EQType>"+eQType+"</EQType>", "CurrentValue")
 }
 
 // TODO: Test
@@ -95,13 +40,13 @@ func (zp *ZonePlayer) GetHeadphoneConnected() (bool, error) {
 
 // TODO: Test
 func (zp *ZonePlayer) GetLoudness() (bool, error) {
-	res, err := zp.SendRenderingControl("GetLoudness", "<Channel>"+zp.Channel+"</Channel>", "CurrentLoudness")
+	res, err := zp.SendRenderingControl("GetLoudness", "<Channel>"+zp.Static.RenderingControl.Channel+"</Channel>", "CurrentLoudness")
 	return res == "1", err
 }
 
 // TODO: Test
 func (zp *ZonePlayer) GetMute() (bool, error) {
-	res, err := zp.SendRenderingControl("GetMute", "<Channel>"+zp.Channel+"</Channel>", "CurrentMute")
+	res, err := zp.SendRenderingControl("GetMute", "<Channel>"+zp.Static.RenderingControl.Channel+"</Channel>", "CurrentMute")
 	return res == "1", err
 }
 
@@ -145,7 +90,7 @@ func (zp *ZonePlayer) GetTreble() (int, error) {
 
 // TODO: Test
 func (zp *ZonePlayer) GetVolume() (int, error) {
-	res, err := zp.SendRenderingControl("GetVolume", "<Channel>"+zp.Channel+"</Channel>", "CurrentVolume")
+	res, err := zp.SendRenderingControl("GetVolume", "<Channel>"+zp.Static.RenderingControl.Channel+"</Channel>", "CurrentVolume")
 	if err != nil {
 		return 0, err
 	}
@@ -154,7 +99,7 @@ func (zp *ZonePlayer) GetVolume() (int, error) {
 
 // TODO: Test
 func (zp *ZonePlayer) GetVolumeDB() (int, error) {
-	res, err := zp.SendRenderingControl("GetVolumeDB", "<Channel>"+zp.Channel+"</Channel>", "CurrentVolume")
+	res, err := zp.SendRenderingControl("GetVolumeDB", "<Channel>"+zp.Static.RenderingControl.Channel+"</Channel>", "CurrentVolume")
 	if err != nil {
 		return 0, err
 	}
@@ -163,7 +108,7 @@ func (zp *ZonePlayer) GetVolumeDB() (int, error) {
 
 // TODO: Test
 func (zp *ZonePlayer) GetVolumeDBRange() (int, int, error) {
-	res, err := zp.SendRenderingControl("GetVolumeDBRange", "<Channel>"+zp.Channel+"</Channel>", "s:Body")
+	res, err := zp.SendRenderingControl("GetVolumeDBRange", "<Channel>"+zp.Static.RenderingControl.Channel+"</Channel>", "s:Body")
 	if err != nil {
 		return 0, 0, err
 	}
@@ -187,26 +132,8 @@ func (zp *ZonePlayer) GetVolumeDBRange() (int, int, error) {
 }
 
 // TODO: Test
-func (zp *ZonePlayer) RampToVolumeSleepTimer(volume int, resetVolumeAfter bool, ProgramURI string) (int, error) {
-	res, err := zp.SendRenderingControl("RampToVolume", "<Channel>"+zp.Channel+"</Channel><RampType>SleepTimer</RampType><DesiredVolume>"+strconv.Itoa(max(0, min(100, volume)))+"</DesiredVolume><ResetVolumeAfter>"+boolTo10(resetVolumeAfter)+"</ResetVolumeAfter><ProgramURI>"+ProgramURI+"</ProgramURI>", "RampTime")
-	if err != nil {
-		return 0, err
-	}
-	return strconv.Atoi(res)
-}
-
-// TODO: Test
-func (zp *ZonePlayer) RampToVolumeAlarm(volume int, resetVolumeAfter bool, ProgramURI string) (int, error) {
-	res, err := zp.SendRenderingControl("RampToVolume", "<Channel>"+zp.Channel+"</Channel><RampType>Alarm</RampType><DesiredVolume>"+strconv.Itoa(max(0, min(100, volume)))+"</DesiredVolume><ResetVolumeAfter>"+boolTo10(resetVolumeAfter)+"</ResetVolumeAfter><ProgramURI>"+ProgramURI+"</ProgramURI>", "RampTime")
-	if err != nil {
-		return 0, err
-	}
-	return strconv.Atoi(res)
-}
-
-// TODO: Test
-func (zp *ZonePlayer) RampToVolumeAutoPlay(volume int, resetVolumeAfter bool, ProgramURI string) (int, error) {
-	res, err := zp.SendRenderingControl("RampToVolume", "<Channel>"+zp.Channel+"</Channel><RampType>AutoPlay</RampType><DesiredVolume>"+strconv.Itoa(max(0, min(100, volume)))+"</DesiredVolume><ResetVolumeAfter>"+boolTo10(resetVolumeAfter)+"</ResetVolumeAfter><ProgramURI>"+ProgramURI+"</ProgramURI>", "RampTime")
+func (zp *ZonePlayer) RampToVolume(rampType string, volume int, resetVolumeAfter bool, programURI string) (int, error) {
+	res, err := zp.SendRenderingControl("RampToVolume", "<Channel>"+zp.Static.RenderingControl.Channel+"</Channel><RampType>"+rampType+"</RampType><DesiredVolume>"+strconv.Itoa(max(0, min(100, volume)))+"</DesiredVolume><ResetVolumeAfter>"+boolTo10(resetVolumeAfter)+"</ResetVolumeAfter><ProgramURI>"+programURI+"</ProgramURI>", "RampTime")
 	if err != nil {
 		return 0, err
 	}
@@ -225,56 +152,14 @@ func (zp *ZonePlayer) ResetBasicEQ() (resetBasicEQResponse, error) {
 }
 
 // TODO: Test
-func (zp *ZonePlayer) ResetExtEQDialogLevel() error {
-	_, err := zp.SendRenderingControl("ResetExtEQ", "<EQType>EQDialogLevel</EQType>", "")
-	return err
-}
-
-// TODO: Test
-func (zp *ZonePlayer) ResetExtEQMusicSurroundLevel() error {
-	_, err := zp.SendRenderingControl("ResetExtEQ", "<EQType>EQMusicSurroundLevel</EQType>", "")
-	return err
-}
-
-// TODO: Test
-func (zp *ZonePlayer) ResetExtEQNightMode() error {
-	_, err := zp.SendRenderingControl("ResetExtEQ", "<EQType>EQNightMode</EQType>", "")
-	return err
-}
-
-// TODO: Test
-func (zp *ZonePlayer) ResetExtEQSubGain() error {
-	_, err := zp.SendRenderingControl("ResetExtEQ", "<EQType>EQSubGain</EQType>", "")
-	return err
-}
-
-// TODO: Test
-func (zp *ZonePlayer) ResetExtEQSurroundEnable() error {
-	_, err := zp.SendRenderingControl("ResetExtEQ", "<EQType>EQSurroundEnable</EQType>", "")
-	return err
-}
-
-// TODO: Test
-func (zp *ZonePlayer) ResetExtEQSurroundLevel() error {
-	_, err := zp.SendRenderingControl("ResetExtEQ", "<EQType>EQSurroundLevel</EQType>", "")
-	return err
-}
-
-// TODO: Test
-func (zp *ZonePlayer) ResetExtEQSurroundMode() error {
-	_, err := zp.SendRenderingControl("ResetExtEQ", "<EQType>EQSurroundMode</EQType>", "")
-	return err
-}
-
-// TODO: Test
-func (zp *ZonePlayer) ResetExtEQHeightChannelLevel() error {
-	_, err := zp.SendRenderingControl("ResetExtEQ", "<EQType>EQHeightChannelLevel</EQType>", "")
+func (zp *ZonePlayer) ResetExtEQ(eQType string) error {
+	_, err := zp.SendRenderingControl("ResetExtEQ", "<EQType>"+eQType+"</EQType>", "")
 	return err
 }
 
 // TODO: Test
 func (zp *ZonePlayer) RestoreVolumePriorToRamp() error {
-	_, err := zp.SendRenderingControl("RestoreVolumePriorToRamp", "<Channel>"+zp.Channel+"</Channel>", "")
+	_, err := zp.SendRenderingControl("RestoreVolumePriorToRamp", "<Channel>"+zp.Static.RenderingControl.Channel+"</Channel>", "")
 	return err
 }
 
@@ -291,62 +176,20 @@ func (zp *ZonePlayer) SetChannelMap(channelMap string) error {
 }
 
 // TODO: Test
-func (zp *ZonePlayer) SetEQDialogLevel(state bool) error {
-	_, err := zp.SendRenderingControl("SetEQ", "<EQType>DialogLevel</EQType><DesiredValue>"+boolTo10(state)+"</DesiredValue>", "")
-	return err
-}
-
-// TODO: Test
-func (zp *ZonePlayer) SetEQMusicSurroundLevel(volume int) error {
-	_, err := zp.SendRenderingControl("SetEQ", "<EQType>MusicSurroundLevel</EQType><DesiredValue>"+strconv.Itoa(max(-15, min(15, volume)))+"</DesiredValue>", "")
-	return err
-}
-
-// TODO: Test
-func (zp *ZonePlayer) SetEQNightMode(state bool) error {
-	_, err := zp.SendRenderingControl("SetEQ", "<EQType>NightMode</EQType><DesiredValue>"+boolTo10(state)+"</DesiredValue>", "")
-	return err
-}
-
-// TODO: Test
-func (zp *ZonePlayer) SetEQSubGain(volume int) error {
-	_, err := zp.SendRenderingControl("SetEQ", "<EQType>SubGain</EQType><DesiredValue>"+strconv.Itoa(max(-10, min(10, volume)))+"</DesiredValue>", "")
-	return err
-}
-
-// TODO: Test
-func (zp *ZonePlayer) SetEQSurroundEnable(state bool) error {
-	_, err := zp.SendRenderingControl("SetEQ", "<EQType>SurroundEnable</EQType><DesiredValue>"+boolTo10(state)+"</DesiredValue>", "")
-	return err
-}
-
-// TODO: Test
-func (zp *ZonePlayer) SetEQSurroundLevel(volume int) error {
-	_, err := zp.SendRenderingControl("SetEQ", "<EQType>SurroundLevel</EQType><DesiredValue>"+strconv.Itoa(max(-15, min(15, volume)))+"</DesiredValue>", "")
-	return err
-}
-
-// TODO: Test
-func (zp *ZonePlayer) SetEQSurroundMode(full bool) error {
-	_, err := zp.SendRenderingControl("SetEQ", "<EQType>SurroundMode</EQType><DesiredValue>"+boolTo10(full)+"</DesiredValue>", "")
-	return err
-}
-
-// TODO: Test
-func (zp *ZonePlayer) SetEQHeightChannelLevel(volume int) error {
-	_, err := zp.SendRenderingControl("SetEQ", "<EQType>HeightChannelLevel</EQType><DesiredValue>"+strconv.Itoa(max(-10, min(10, volume)))+"</DesiredValue>", "")
+func (zp *ZonePlayer) SetEQ(eQType string, state string) error {
+	_, err := zp.SendRenderingControl("SetEQ", "<EQType>"+eQType+"</EQType><DesiredValue>"+state+"</DesiredValue>", "")
 	return err
 }
 
 // TODO: Test
 func (zp *ZonePlayer) SetLoudness(state bool) error {
-	_, err := zp.SendRenderingControl("SetLoudness", "<Channel>"+zp.Channel+"</Channel><DesiredLoudness>"+boolTo10(state)+"</DesiredLoudness>", "")
+	_, err := zp.SendRenderingControl("SetLoudness", "<Channel>"+zp.Static.RenderingControl.Channel+"</Channel><DesiredLoudness>"+boolTo10(state)+"</DesiredLoudness>", "")
 	return err
 }
 
 // TODO: Test
 func (zp *ZonePlayer) SetMute(state bool) error {
-	_, err := zp.SendRenderingControl("SetMute", "<Channel>"+zp.Channel+"</Channel><DesiredMute>"+boolTo10(state)+"</DesiredMute>", "")
+	_, err := zp.SendRenderingControl("SetMute", "<Channel>"+zp.Static.RenderingControl.Channel+"</Channel><DesiredMute>"+boolTo10(state)+"</DesiredMute>", "")
 	return err
 }
 
@@ -358,7 +201,7 @@ func (zp *ZonePlayer) SetOutputFixed(state bool) error {
 
 // TODO: Test
 func (zp *ZonePlayer) SetRelativeVolume(volume int) (int, error) {
-	res, err := zp.SendRenderingControl("SetRelativeVolume", "<Channel>"+zp.Channel+"</Channel><Adjustment>"+strconv.Itoa(max(-100, min(100, volume)))+"</Adjustment>", "NewVolume")
+	res, err := zp.SendRenderingControl("SetRelativeVolume", "<Channel>"+zp.Static.RenderingControl.Channel+"</Channel><Adjustment>"+strconv.Itoa(max(-100, min(100, volume)))+"</Adjustment>", "NewVolume")
 	if err != nil {
 		return 0, err
 	}
@@ -385,12 +228,12 @@ func (zp *ZonePlayer) SetTreble(volume int) error {
 
 // TODO: Test
 func (zp *ZonePlayer) SetVolume(volume int) error {
-	_, err := zp.SendRenderingControl("SetVolume", "<Channel>"+zp.Channel+"</Channel><DesiredVolume>"+strconv.Itoa(max(0, min(100, volume)))+"</DesiredVolume>", "")
+	_, err := zp.SendRenderingControl("SetVolume", "<Channel>"+zp.Static.RenderingControl.Channel+"</Channel><DesiredVolume>"+strconv.Itoa(max(0, min(100, volume)))+"</DesiredVolume>", "")
 	return err
 }
 
 // TODO: Test
 func (zp *ZonePlayer) SetVolumeDB(volume int) error {
-	_, err := zp.SendRenderingControl("SetVolumeDB", "<Channel>"+zp.Channel+"</Channel><DesiredVolume>"+strconv.Itoa(max(0, min(100, volume)))+"</DesiredVolume>", "")
+	_, err := zp.SendRenderingControl("SetVolumeDB", "<Channel>"+zp.Static.RenderingControl.Channel+"</Channel><DesiredVolume>"+strconv.Itoa(max(0, min(100, volume)))+"</DesiredVolume>", "")
 	return err
 }

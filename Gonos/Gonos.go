@@ -13,16 +13,32 @@ import (
 )
 
 type (
-	command    struct{ Endpoint, Action, Body, ExpectedResponse, TargetTag string }
-	errSonos   struct{ ErrUnexpectedResponse, ErrInvalidIPAdress, ErrNoZonePlayerFound, ErrInvalidEndpoint, ErrInvalidContentType, ErrInvalidPlayMode error }
+	errSonos     struct{ ErrUnexpectedResponse, ErrInvalidIPAdress, ErrNoZonePlayerFound, ErrInvalidEndpoint, ErrInvalidContentType, ErrInvalidPlayMode error }
+	contentTypes = struct{ Artist, Albumartist, Album, Genre, Composer, Track, Playlists, MusicLibrary, Share, SonosPlaylists, SonosFavorites, RadioStations, RadioShows, Queues, QueueMain, QueueOne string }
+	playmodes    = struct{ Normal, RepeatAll, RepeatOne, ShuffleNorepeat, Shuffle, ShuffleRepeaOne string }
+
 	ZonePlayer struct {
 		IpAddress net.IP
 		// GetZoneInfo call is made to confirm if the requested ZonePlayer exists opon creation, might as well store the returned data.
 		ZoneInfo getZoneInfoResponse
-		// Channel should be one of: `Master`, `LF` or `RF`
-		Channel string
-		// Play speed usually `1`, can be a fraction of 1 Allowed values: `1`
-		Speed int
+		// Static generics; not recomended to modify.
+		Static struct {
+			General struct {
+				QueNumber int
+			}
+			RenderingControl struct {
+				// Channel should be one of: `Master`, `LF` or `RF`
+				Channel string
+			}
+			DeviceProperties struct {
+				Source string
+			}
+			AVTransport struct {
+				// Play speed usually `1`, can be a fraction of 1 Allowed values: `1`
+				Speed    int
+				UpdateID int
+			}
+		}
 	}
 )
 
@@ -31,25 +47,35 @@ var ErrSonos = errSonos{
 	ErrInvalidIPAdress:    errors.New("unable to discover zone player"),
 	ErrNoZonePlayerFound:  errors.New("unable to find zone player"),
 	ErrInvalidEndpoint:    errors.New("invalid endpoint"),
-	ErrInvalidContentType: errors.New("invalid content type"),
 	ErrInvalidPlayMode:    errors.New("invalid play mode"),
 }
 
-var ContentTypes = map[string]string{
-	"artist":          "A:ARTIST",
-	"albumartist":     "A:ALBUMARTIST",
-	"album":           "A:ALBUM",
-	"genre":           "A:GENRE",
-	"composer":        "A:COMPOSER",
-	"track":           "A:TRACKS",
-	"playlists":       "A:PLAYLISTS",
-	"music library":   "A",
-	"share":           "S:",
-	"sonos playlists": "SQ:",
-	"sonos favorites": "FV:2",
-	"radio stations":  "R:0/0",
-	"radio shows":     "R:0/1",
-	"queue":           "Q:", // Maybe Q:0 ??
+var Playmodes = playmodes{
+	Normal:          "NORMAL",
+	RepeatAll:       "REPEAT_ALL",
+	RepeatOne:       "REPEAT_ONE",
+	ShuffleNorepeat: "SHUFFLE_NOREPEAT",
+	Shuffle:         "SHUFFLE",
+	ShuffleRepeaOne: "SHUFFLE_REPEAT_ONE",
+}
+
+var ContentTypes = contentTypes{
+	Artist:         "A:ARTIST",
+	Albumartist:    "A:ALBUMARTIST",
+	Album:          "A:ALBUM",
+	Genre:          "A:GENRE",
+	Composer:       "A:COMPOSER",
+	Track:          "A:TRACKS",
+	Playlists:      "A:PLAYLISTS",
+	MusicLibrary:   "A",
+	Share:          "S:",
+	SonosPlaylists: "SQ:",
+	SonosFavorites: "FV:2",
+	RadioStations:  "R:0/0",
+	RadioShows:     "R:0/1",
+	Queues:         "Q:",
+	QueueMain:      "Q:0",
+	QueueOne:       "Q:1",
 }
 
 func unmarshalMetaData[T any](data string, v T) error {
@@ -101,7 +127,13 @@ func NewZonePlayer(ipAddress string) (*ZonePlayer, error) {
 		return &ZonePlayer{}, ErrSonos.ErrInvalidIPAdress
 	}
 
-	zp := &ZonePlayer{IpAddress: ip, Channel: "Master", Speed: 1}
+	zp := &ZonePlayer{IpAddress: ip}
+	zp.Static.General.QueNumber = 0
+	zp.Static.RenderingControl.Channel = "Master"
+	zp.Static.DeviceProperties.Source = ""
+	zp.Static.AVTransport.Speed = 1
+	zp.Static.AVTransport.UpdateID = 0
+
 	info, err := zp.GetZoneInfo()
 	if err != nil {
 		return &ZonePlayer{}, ErrSonos.ErrNoZonePlayerFound

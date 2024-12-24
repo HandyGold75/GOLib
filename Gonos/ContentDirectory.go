@@ -61,12 +61,8 @@ type (
 	}
 )
 
-func (zp *ZonePlayer) getContentDirectory(typ string, start int, count int) (contentDirectorResponse, error) {
-	id, ok := ContentTypes[typ]
-	if !ok {
-		return contentDirectorResponse{}, ErrSonos.ErrInvalidContentType
-	}
-	res, err := zp.SendContentDirectory("Browse", "<ObjectID>"+id+"</ObjectID><BrowseFlag>BrowseDirectChildren</BrowseFlag><Filter>dc:title,res,dc:creator,upnp:artist,upnp:album,upnp:albumArtURI</Filter><StartingIndex>"+strconv.Itoa(start)+"</StartingIndex><RequestedCount>"+strconv.Itoa(count)+"</RequestedCount><SortCriteria></SortCriteria>", "s:Body")
+func (zp *ZonePlayer) getContentDirectory(objectID string, start int, count int) (contentDirectorResponse, error) {
+	res, err := zp.SendContentDirectory("Browse", "<ObjectID>"+objectID+"</ObjectID><BrowseFlag>BrowseDirectChildren</BrowseFlag><Filter>dc:title,res,dc:creator,upnp:artist,upnp:album,upnp:albumArtURI</Filter><StartingIndex>"+strconv.Itoa(start)+"</StartingIndex><RequestedCount>"+strconv.Itoa(count)+"</RequestedCount><SortCriteria></SortCriteria>", "s:Body")
 	if err != nil {
 		return contentDirectorResponse{}, err
 	}
@@ -77,7 +73,7 @@ func (zp *ZonePlayer) getContentDirectory(typ string, start int, count int) (con
 
 // Get information about the que. (TODO: Test)
 func (zp *ZonePlayer) GetQue() (*Que, error) {
-	info, err := zp.getContentDirectory("queue", 0, 0)
+	info, err := zp.getContentDirectory(ContentTypes.QueueMain, 0, 0)
 	if err != nil {
 		return &Que{}, err
 	}
@@ -105,7 +101,7 @@ func (zp *ZonePlayer) GetQue() (*Que, error) {
 
 // Get information about the share. (TODO: Test)
 func (zp *ZonePlayer) GetShare() (*Favorites, error) {
-	info, err := zp.getContentDirectory("sonos share", 0, 0)
+	info, err := zp.getContentDirectory(ContentTypes.Share, 0, 0)
 	if err != nil {
 		return &Favorites{}, err
 	}
@@ -133,7 +129,7 @@ func (zp *ZonePlayer) GetShare() (*Favorites, error) {
 
 // Get information about the favorites. (TODO: Test)
 func (zp *ZonePlayer) GetFavorites() (*Favorites, error) {
-	info, err := zp.getContentDirectory("sonos favorites", 0, 0)
+	info, err := zp.getContentDirectory(ContentTypes.SonosFavorites, 0, 0)
 	if err != nil {
 		return &Favorites{}, err
 	}
@@ -161,7 +157,7 @@ func (zp *ZonePlayer) GetFavorites() (*Favorites, error) {
 
 // Get information about the favorites radio stations. (TODO: Test)
 func (zp *ZonePlayer) GetRadioStations() (*Favorites, error) {
-	info, err := zp.getContentDirectory("radio stations", 0, 0)
+	info, err := zp.getContentDirectory(ContentTypes.RadioStations, 0, 0)
 	if err != nil {
 		return &Favorites{}, err
 	}
@@ -189,7 +185,7 @@ func (zp *ZonePlayer) GetRadioStations() (*Favorites, error) {
 
 // Get information about the radio shows. (TODO: Test)
 func (zp *ZonePlayer) GetRadioShows() (*Favorites, error) {
-	info, err := zp.getContentDirectory("radio shows", 0, 0)
+	info, err := zp.getContentDirectory(ContentTypes.RadioShows, 0, 0)
 	if err != nil {
 		return &Favorites{}, err
 	}

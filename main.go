@@ -12,10 +12,10 @@ func main() {
 	}
 	zp := zps[0]
 
-	out, err := zp.GetButtonState()
+	out, err := zp.GetQue()
 	if err != nil {
-	fmt.Println(err)
-	fmt.Println()
+		fmt.Println(err)
+		fmt.Println()
 	}
 	fmt.Println(out)
 }
