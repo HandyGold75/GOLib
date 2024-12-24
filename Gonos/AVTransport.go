@@ -125,24 +125,6 @@ type (
 	}
 )
 
-var PlaymodesMap = map[string][3]bool{
-	// "MODE": [2]bool{shuffle, repeat, repeatOne}
-	Playmodes.Normal:          {false, false, false},
-	Playmodes.RepeatAll:       {false, true, false},
-	Playmodes.RepeatOne:       {false, false, true},
-	Playmodes.ShuffleNorepeat: {true, false, false},
-	Playmodes.Shuffle:         {true, true, false},
-	Playmodes.ShuffleRepeaOne: {true, false, true},
-}
-
-var PlaymodesMapReversed = func() map[[3]bool]string {
-	PMS := map[[3]bool]string{}
-	for k, v := range PlaymodesMap {
-		PMS[v] = k
-	}
-	return PMS
-}()
-
 // TODO: test
 func (zp *ZonePlayer) AddMultipleURIsToQueue(numberOfURIs int, enqueuedURIs string, enqueuedURIsMetaData string, containerURI string, containerMetaData string, desiredFirstTrackNumberEnqueued int, enqueueAsNext bool) (addMultipleURIsToQueueResponse, error) {
 	res, err := zp.SendAVTransport("AddMultipleURIsToQueue", "<UpdateID>"+strconv.Itoa(zp.Static.AVTransport.UpdateID)+"</UpdateID><NumberOfURIs>"+strconv.Itoa(numberOfURIs)+"</NumberOfURIs><EnqueuedURIs>"+enqueuedURIs+"</EnqueuedURIs><EnqueuedURIsMetaData>"+enqueuedURIsMetaData+"</EnqueuedURIsMetaData><ContainerURI>"+containerURI+"</ContainerURI><ContainerMetaData>"+containerMetaData+"</ContainerMetaData><DesiredFirstTrackNumberEnqueued>"+strconv.Itoa(desiredFirstTrackNumberEnqueued)+"</DesiredFirstTrackNumberEnqueued><EnqueueAsNext>"+boolTo10(enqueueAsNext)+"</EnqueueAsNext>", "s:Body")
@@ -420,6 +402,8 @@ func (zp *ZonePlayer) ReorderTracksInSavedQueue(contentType string, trackList st
 	return data, err
 }
 
+// `playMode` should be one of `Gonos.PlayModes.*`
+//
 // TODO: Test
 func (zp *ZonePlayer) RunAlarm(alarmID int, loggedStartTime string, duration string, programURI string, programMetaData string, playMode string, volume int, includeLinkedZones bool) error {
 	_, err := zp.SendAVTransport("RunAlarm", "<AlarmID>"+strconv.Itoa(alarmID)+"</AlarmID><LoggedStartTime>"+loggedStartTime+"</LoggedStartTime><Duration>"+duration+"</Duration><ProgramURI>"+programURI+"</ProgramURI><ProgramMetaData>"+programMetaData+"</ProgramMetaData><PlayMode>"+playMode+"</PlayMode><Volume>"+strconv.Itoa(max(0, min(100, volume)))+"</Volume><IncludeLinkedZones>"+boolTo10(includeLinkedZones)+"</IncludeLinkedZones>", "")
@@ -459,7 +443,7 @@ func (zp *ZonePlayer) SetNextAVTransportURI(nextURI string, nextURIMetaData stri
 
 // TODO: test
 func (zp *ZonePlayer) SetPlayMode(shuffle bool, repeat bool, repeatOne bool) error {
-	mode, ok := PlaymodesMapReversed[[3]bool{shuffle, repeat, repeatOne}]
+	mode, ok := PlayModeMapReversed[[3]bool{shuffle, repeat, repeatOne}]
 	if !ok {
 		return ErrSonos.ErrInvalidPlayMode
 	}
