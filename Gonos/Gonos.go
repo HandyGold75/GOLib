@@ -50,15 +50,6 @@ var ErrSonos = errSonos{
 	ErrInvalidPlayMode:    errors.New("invalid play mode"),
 }
 
-var Playmodes = playmodes{
-	Normal:          "NORMAL",
-	RepeatAll:       "REPEAT_ALL",
-	RepeatOne:       "REPEAT_ONE",
-	ShuffleNorepeat: "SHUFFLE_NOREPEAT",
-	Shuffle:         "SHUFFLE",
-	ShuffleRepeaOne: "SHUFFLE_REPEAT_ONE",
-}
-
 var ContentTypes = contentTypes{
 	Artist:         "A:ARTIST",
 	Albumartist:    "A:ALBUMARTIST",
@@ -77,6 +68,33 @@ var ContentTypes = contentTypes{
 	QueueMain:      "Q:0",
 	QueueOne:       "Q:1",
 }
+
+var PlayModes = playmodes{
+	Normal:          "NORMAL",
+	RepeatAll:       "REPEAT_ALL",
+	RepeatOne:       "REPEAT_ONE",
+	ShuffleNorepeat: "SHUFFLE_NOREPEAT",
+	Shuffle:         "SHUFFLE",
+	ShuffleRepeaOne: "SHUFFLE_REPEAT_ONE",
+}
+
+var PlayModeMap = map[string][3]bool{
+	// "PlayMode": [2]bool{shuffle, repeat, repeatOne}
+	PlayModes.Normal:          {false, false, false},
+	PlayModes.RepeatAll:       {false, true, false},
+	PlayModes.RepeatOne:       {false, false, true},
+	PlayModes.ShuffleNorepeat: {true, false, false},
+	PlayModes.Shuffle:         {true, true, false},
+	PlayModes.ShuffleRepeaOne: {true, false, true},
+}
+
+var PlayModeMapReversed = func() map[[3]bool]string {
+	PMS := map[[3]bool]string{}
+	for k, v := range PlayModeMap {
+		PMS[v] = k
+	}
+	return PMS
+}()
 
 func unmarshalMetaData[T any](data string, v T) error {
 	data = strings.ReplaceAll(data, "&apos;", "'")

@@ -6,7 +6,7 @@ import (
 )
 
 type (
-	TrackInfo struct {
+	trackInfo struct {
 		QuePosition int
 		Duration    string
 		URI         string
@@ -20,12 +20,12 @@ type (
 )
 
 // TODO: Test
-func (zp *ZonePlayer) GetTrackInfo() (*TrackInfo, error) {
+func (zp *ZonePlayer) GetTrackInfo() (*trackInfo, error) {
 	info, err := zp.GetPositionInfo()
 	if err != nil {
-		return &TrackInfo{}, err
+		return &trackInfo{}, err
 	}
-	return &TrackInfo{
+	return &trackInfo{
 		QuePosition: info.Track,
 		Duration:    info.TrackDuration,
 		URI:         info.TrackURI,
@@ -86,7 +86,7 @@ func (zp *ZonePlayer) GetPlayMode() (shuffle bool, repeat bool, repeatOne bool, 
 	if err != nil {
 		return false, false, false, err
 	}
-	modeBools, ok := PlaymodesMap[res.PlayMode]
+	modeBools, ok := PlayModeMap[res.PlayMode]
 	if !ok {
 		return false, false, false, ErrSonos.ErrUnexpectedResponse
 	}
