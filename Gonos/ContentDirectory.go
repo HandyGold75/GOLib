@@ -23,7 +23,7 @@ type (
 		Result 		string
 	}
 	findPrefix struct {
-		XMLName               xml.Name `xml:"FindPrefix "`
+		XMLName               xml.Name `xml:"FindPrefix"`
 		StartingIndex 	int 	 
 		UpdateID 	int
 	}
