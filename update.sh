@@ -1,21 +1,22 @@
 #!/bin/bash
 
-dir="$( cd "$( dirname "$0" )" && pwd )"
+updatework(){
+    go mod edit -go "$(go version | { read -r _ _ v _; echo "${v#go}"; })" || { echo -e "\033[31mFailed: $1.*\033[0m" ; return 1; }
+    go mod tidy || { echo -e "\033[31mFailed: $1.*\033[0m" ; return 1; }
+    go get -u ./... || { echo -e "\033[31mFailed: $1.*\033[0m" ; return 1; }
+}
 
+dir="$( cd "$( dirname "$0" )" && pwd )"
 cd "$dir" || exit 1
 
-for subdir in `ls -d */`; do
-    if [ "$(ls "$dir/$subdir" | grep go.mod)" = "" ]; then
+for subdir in *"/"; do
+    if [ ! -f "$dir/$subdir"go.mod ]; then
         continue
     fi
 
-
-    cd "$dir/$subdir" || exit 1
-
     file=${subdir,,}
     file=${file/"/"/""}
+    cd "$dir/$subdir" || { echo -e "\033[31mFailed: $file.bin\033[0m" ; continue; }
 
-    go mod edit -go "$(go version | { read -r _ _ v _; echo "${v#go}"; })"
-    go mod tidy
-    go get -u ./...
+    updatework "$file" && echo -e "\033[32mUpdated: $file.bin\033[0m"
 done
