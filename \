@@ -172,7 +172,7 @@ func DiscoverZonePlayer() (*ZonePlayer, error) {
 	chOut := make(chan string)
 	go func() {
 		buf := make([]byte, 1024)
-		_, addr, err := conn.ReadFrom(buf)
+		n, addr, err := conn.ReadFrom(buf)
 		if err != nil {
 			chOut <- ""
 			return

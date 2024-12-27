@@ -1,24 +1,9 @@
 package Gonos
 
-import (
-	"encoding/xml"
-	"strconv"
-)
+import "encoding/xml"
 
 type (
-	Que struct {
-		Count      string
-		TotalCount string
-		Tracks     []QueTrack
-	}
-	QueTrack struct {
-		AlbumArtURI string
-		Title       string
-		Class       string
-		Creator     string
-		Album       string
-	}
-	queMetaData struct {
+	browseResponseMetaDataQue struct {
 		XMLName     xml.Name `xml:"item"`
 		Res         string   `xml:"res"`
 		AlbumArtUri string   `xml:"albumArtURI"`
@@ -27,20 +12,20 @@ type (
 		Creator     string   `xml:"creator"`
 		Album       string   `xml:"album"`
 	}
-
-	Favorites struct {
-		Count      string
-		TotalCount string
-		Favorites  []FavoritesItem
+	queInfo struct {
+		Count      int
+		TotalCount int
+		Tracks     []queInfoItem
 	}
-	FavoritesItem struct {
+	queInfoItem struct {
 		AlbumArtURI string
 		Title       string
-		Description string
 		Class       string
-		Type        string
+		Creator     string
+		Album       string
 	}
-	favoritesMetaData struct {
+
+	browseResponseMetaDataQueFavorites struct {
 		XMLName     xml.Name `xml:"item"`
 		Title       string   `xml:"title"`
 		Class       string   `xml:"class"`
@@ -51,40 +36,154 @@ type (
 		Description string   `xml:"description"`
 		ResMD       string   `xml:"resMD"`
 	}
-
-	contentDirectorResponse struct {
-		XMLName        xml.Name `xml:"BrowseResponse"`
-		Result         string
-		NumberReturned string
-		TotalMatches   string
-		UpdateID       string
+	favoritesInfo struct {
+		Count      int
+		TotalCount int
+		Favorites  []favoritesInfoItem
+	}
+	favoritesInfoItem struct {
+		AlbumArtURI string
+		Title       string
+		Description string
+		Class       string
+		Type        string
 	}
 )
 
-func (zp *ZonePlayer) getContentDirectory(objectID string, start int, count int) (contentDirectorResponse, error) {
-	res, err := zp.SendContentDirectory("Browse", "<ObjectID>"+objectID+"</ObjectID><BrowseFlag>BrowseDirectChildren</BrowseFlag><Filter>dc:title,res,dc:creator,upnp:artist,upnp:album,upnp:albumArtURI</Filter><StartingIndex>"+strconv.Itoa(start)+"</StartingIndex><RequestedCount>"+strconv.Itoa(count)+"</RequestedCount><SortCriteria></SortCriteria>", "s:Body")
+// TODO: Test
+func (zp *ZonePlayer) GetShare() (favoritesInfo, error) {
+	info, err := zp.Browse(ContentTypes.Share, "BrowseDirectChildren", "dc:title,res,dc:creator,upnp:artist,upnp:album,upnp:albumArtURI", 0, 0, "")
 	if err != nil {
-		return contentDirectorResponse{}, err
+		return favoritesInfo{}, err
 	}
-	data := contentDirectorResponse{}
-	err = xml.Unmarshal([]byte(res), &data)
-	return data, err
-}
-
-// Get information about the que. (TODO: Test)
-func (zp *ZonePlayer) GetQue() (*Que, error) {
-	info, err := zp.getContentDirectory(ContentTypes.QueueMain, 0, 0)
-	if err != nil {
-		return &Que{}, err
-	}
-	metadata := []queMetaData{}
+	metadata := []browseResponseMetaDataQueFavorites{}
 	err = unmarshalMetaData(info.Result, &metadata)
 	if err != nil {
-		return &Que{}, err
+		return favoritesInfo{}, err
 	}
-	tracks := []QueTrack{}
+	favorites := []favoritesInfoItem{}
+	for _, favorite := range metadata {
+		favorites = append(favorites, favoritesInfoItem{
+			AlbumArtURI: "http://" + zp.IpAddress.String() + ":1400" + favorite.AlbumArtUri,
+			Title:       favorite.Title,
+			Description: favorite.Description,
+			Class:       favorite.Class,
+			Type:        favorite.Type,
+		})
+	}
+	return favoritesInfo{Count: info.NumberReturned, TotalCount: info.TotalMatches, Favorites: favorites}, nil
+}
+
+// TODO: Test
+func (zp *ZonePlayer) GetPlaylists() (favoritesInfo, error) {
+	info, err := zp.Browse(ContentTypes.SonosPlaylists, "BrowseDirectChildren", "dc:title,res,dc:creator,upnp:artist,upnp:album,upnp:albumArtURI", 0, 0, "")
+	if err != nil {
+		return favoritesInfo{}, err
+	}
+	metadata := []browseResponseMetaDataQueFavorites{}
+	err = unmarshalMetaData(info.Result, &metadata)
+	if err != nil {
+		return favoritesInfo{}, err
+	}
+	favorites := []favoritesInfoItem{}
+	for _, favorite := range metadata {
+		favorites = append(favorites, favoritesInfoItem{
+			AlbumArtURI: "http://" + zp.IpAddress.String() + ":1400" + favorite.AlbumArtUri,
+			Title:       favorite.Title,
+			Description: favorite.Description,
+			Class:       favorite.Class,
+			Type:        favorite.Type,
+		})
+	}
+	return favoritesInfo{Count: info.NumberReturned, TotalCount: info.TotalMatches, Favorites: favorites}, nil
+}
+
+// TODO: Test
+func (zp *ZonePlayer) GetFavorites() (favoritesInfo, error) {
+	info, err := zp.Browse(ContentTypes.SonosFavorites, "BrowseDirectChildren", "dc:title,res,dc:creator,upnp:artist,upnp:album,upnp:albumArtURI", 0, 0, "")
+	if err != nil {
+		return favoritesInfo{}, err
+	}
+	metadata := []browseResponseMetaDataQueFavorites{}
+	err = unmarshalMetaData(info.Result, &metadata)
+	if err != nil {
+		return favoritesInfo{}, err
+	}
+	favorites := []favoritesInfoItem{}
+	for _, favorite := range metadata {
+		favorites = append(favorites, favoritesInfoItem{
+			AlbumArtURI: "http://" + zp.IpAddress.String() + ":1400" + favorite.AlbumArtUri,
+			Title:       favorite.Title,
+			Description: favorite.Description,
+			Class:       favorite.Class,
+			Type:        favorite.Type,
+		})
+	}
+	return favoritesInfo{Count: info.NumberReturned, TotalCount: info.TotalMatches, Favorites: favorites}, nil
+}
+
+// TODO: Test
+func (zp *ZonePlayer) GetRadioStations() (favoritesInfo, error) {
+	info, err := zp.Browse(ContentTypes.RadioStations, "BrowseDirectChildren", "dc:title,res,dc:creator,upnp:artist,upnp:album,upnp:albumArtURI", 0, 0, "")
+	if err != nil {
+		return favoritesInfo{}, err
+	}
+	metadata := []browseResponseMetaDataQueFavorites{}
+	err = unmarshalMetaData(info.Result, &metadata)
+	if err != nil {
+		return favoritesInfo{}, err
+	}
+	favorites := []favoritesInfoItem{}
+	for _, favorite := range metadata {
+		favorites = append(favorites, favoritesInfoItem{
+			AlbumArtURI: "http://" + zp.IpAddress.String() + ":1400" + favorite.AlbumArtUri,
+			Title:       favorite.Title,
+			Description: favorite.Description,
+			Class:       favorite.Class,
+			Type:        favorite.Type,
+		})
+	}
+	return favoritesInfo{Count: info.NumberReturned, TotalCount: info.TotalMatches, Favorites: favorites}, nil
+}
+
+// TODO: Test
+func (zp *ZonePlayer) GetRadioShows() (favoritesInfo, error) {
+	info, err := zp.Browse(ContentTypes.RadioShows, "BrowseDirectChildren", "dc:title,res,dc:creator,upnp:artist,upnp:album,upnp:albumArtURI", 0, 0, "")
+	if err != nil {
+		return favoritesInfo{}, err
+	}
+	metadata := []browseResponseMetaDataQueFavorites{}
+	err = unmarshalMetaData(info.Result, &metadata)
+	if err != nil {
+		return favoritesInfo{}, err
+	}
+	favorites := []favoritesInfoItem{}
+	for _, favorite := range metadata {
+		favorites = append(favorites, favoritesInfoItem{
+			AlbumArtURI: "http://" + zp.IpAddress.String() + ":1400" + favorite.AlbumArtUri,
+			Title:       favorite.Title,
+			Description: favorite.Description,
+			Class:       favorite.Class,
+			Type:        favorite.Type,
+		})
+	}
+	return favoritesInfo{Count: info.NumberReturned, TotalCount: info.TotalMatches, Favorites: favorites}, nil
+}
+
+// TODO: Test
+func (zp *ZonePlayer) GetQue() (queInfo, error) {
+	info, err := zp.Browse(ContentTypes.QueueMain, "BrowseDirectChildren", "dc:title,res,dc:creator,upnp:artist,upnp:album,upnp:albumArtURI", 0, 0, "")
+	if err != nil {
+		return queInfo{}, err
+	}
+	metadata := []browseResponseMetaDataQue{}
+	err = unmarshalMetaData(info.Result, &metadata)
+	if err != nil {
+		return queInfo{}, err
+	}
+	tracks := []queInfoItem{}
 	for _, track := range metadata {
-		tracks = append(tracks, QueTrack{
+		tracks = append(tracks, queInfoItem{
 			AlbumArtURI: "http://" + zp.IpAddress.String() + ":1400" + track.AlbumArtUri,
 			Title:       track.Title,
 			Class:       track.Class,
@@ -92,121 +191,5 @@ func (zp *ZonePlayer) GetQue() (*Que, error) {
 			Album:       track.Album,
 		})
 	}
-	return &Que{
-		Count:      info.NumberReturned,
-		TotalCount: info.TotalMatches,
-		Tracks:     tracks,
-	}, nil
-}
-
-// Get information about the share. (TODO: Test)
-func (zp *ZonePlayer) GetShare() (*Favorites, error) {
-	info, err := zp.getContentDirectory(ContentTypes.Share, 0, 0)
-	if err != nil {
-		return &Favorites{}, err
-	}
-	metadata := []favoritesMetaData{}
-	err = unmarshalMetaData(info.Result, &metadata)
-	if err != nil {
-		return &Favorites{}, err
-	}
-	favorites := []FavoritesItem{}
-	for _, favorite := range metadata {
-		favorites = append(favorites, FavoritesItem{
-			AlbumArtURI: "http://" + zp.IpAddress.String() + ":1400" + favorite.AlbumArtUri,
-			Title:       favorite.Title,
-			Description: favorite.Description,
-			Class:       favorite.Class,
-			Type:        favorite.Type,
-		})
-	}
-	return &Favorites{
-		Count:      info.NumberReturned,
-		TotalCount: info.TotalMatches,
-		Favorites:  favorites,
-	}, nil
-}
-
-// Get information about the favorites. (TODO: Test)
-func (zp *ZonePlayer) GetFavorites() (*Favorites, error) {
-	info, err := zp.getContentDirectory(ContentTypes.SonosFavorites, 0, 0)
-	if err != nil {
-		return &Favorites{}, err
-	}
-	metadata := []favoritesMetaData{}
-	err = unmarshalMetaData(info.Result, &metadata)
-	if err != nil {
-		return &Favorites{}, err
-	}
-	favorites := []FavoritesItem{}
-	for _, favorite := range metadata {
-		favorites = append(favorites, FavoritesItem{
-			AlbumArtURI: "http://" + zp.IpAddress.String() + ":1400" + favorite.AlbumArtUri,
-			Title:       favorite.Title,
-			Description: favorite.Description,
-			Class:       favorite.Class,
-			Type:        favorite.Type,
-		})
-	}
-	return &Favorites{
-		Count:      info.NumberReturned,
-		TotalCount: info.TotalMatches,
-		Favorites:  favorites,
-	}, nil
-}
-
-// Get information about the favorites radio stations. (TODO: Test)
-func (zp *ZonePlayer) GetRadioStations() (*Favorites, error) {
-	info, err := zp.getContentDirectory(ContentTypes.RadioStations, 0, 0)
-	if err != nil {
-		return &Favorites{}, err
-	}
-	metadata := []favoritesMetaData{}
-	err = unmarshalMetaData(info.Result, &metadata)
-	if err != nil {
-		return &Favorites{}, err
-	}
-	favorites := []FavoritesItem{}
-	for _, favorite := range metadata {
-		favorites = append(favorites, FavoritesItem{
-			AlbumArtURI: "http://" + zp.IpAddress.String() + ":1400" + favorite.AlbumArtUri,
-			Title:       favorite.Title,
-			Description: favorite.Description,
-			Class:       favorite.Class,
-			Type:        favorite.Type,
-		})
-	}
-	return &Favorites{
-		Count:      info.NumberReturned,
-		TotalCount: info.TotalMatches,
-		Favorites:  favorites,
-	}, nil
-}
-
-// Get information about the radio shows. (TODO: Test)
-func (zp *ZonePlayer) GetRadioShows() (*Favorites, error) {
-	info, err := zp.getContentDirectory(ContentTypes.RadioShows, 0, 0)
-	if err != nil {
-		return &Favorites{}, err
-	}
-	metadata := []favoritesMetaData{}
-	err = unmarshalMetaData(info.Result, &metadata)
-	if err != nil {
-		return &Favorites{}, err
-	}
-	favorites := []FavoritesItem{}
-	for _, favorite := range metadata {
-		favorites = append(favorites, FavoritesItem{
-			AlbumArtURI: "http://" + zp.IpAddress.String() + ":1400" + favorite.AlbumArtUri,
-			Title:       favorite.Title,
-			Description: favorite.Description,
-			Class:       favorite.Class,
-			Type:        favorite.Type,
-		})
-	}
-	return &Favorites{
-		Count:      info.NumberReturned,
-		TotalCount: info.TotalMatches,
-		Favorites:  favorites,
-	}, nil
+	return queInfo{Count: info.NumberReturned, TotalCount: info.TotalMatches, Tracks: tracks}, nil
 }

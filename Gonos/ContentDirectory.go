@@ -9,10 +9,9 @@ type (
 	browseResponse   struct {
 		XMLName               xml.Name `xml:"BrowseResponse"`
 		// Encoded DIDL-Lite XML.
+		//
+		// Should be unmarshaled into type of `browseResponseMetaData*`
 		Result 	string 	
-		ResultParsed  struct {
-			// TODO: Fill in
-		}
 		NumberReturned 	int 
 		TotalMatches 	int 
 		UpdateID 	int 
@@ -27,18 +26,23 @@ type (
 		StartingIndex 	int 	 
 		UpdateID 	int
 	}
+	getAllPrefixLocationsResponse struct {
+		XMLName               xml.Name `xml:"getAllPrefixLocationsResponse"`
+	TotalPrefixes 	int 	 
+PrefixAndIndexCSV 	string 	 
+UpdateID 	int
+	}
 )
 
 // `objectID` may be one of `Gonos.ContentTypes.*` or a custom id
 // 
 // TODO: Test
-func(zp *ZonePlayer ) Browse(objectID string,  browseFlag string,  filter string,  startingIndex int,  requestedCount int,  sortCriteria string,) (browseResponse, error ) { res, err := zp.SendContentDirectory("Browse", "<ObjectID>"+objectID+"</ObjectID><BrowseFlag>"+browseFlag+"</BrowseFlag><Filter>"+filter+"</Filter><StartingIndex>"+strconv.Itoa(startingIndex)+"</StartingIndex><RequestedCount>"+strconv.Itoa(requestedCount)+"</RequestedCount><SortCriteria>"+sortCriteria+"</SortCriteria>", ""); 
+func(zp *ZonePlayer ) Browse(objectID string,  browseFlag string,  filter string,  startingIndex int,  requestedCount int,  sortCriteria string,) (browseResponse, error ) { res, err := zp.SendContentDirectory("Browse", "<ObjectID>"+objectID+"</ObjectID><BrowseFlag>"+browseFlag+"</BrowseFlag><Filter>"+filter+"</Filter><StartingIndex>"+strconv.Itoa(startingIndex)+"</StartingIndex><RequestedCount>"+strconv.Itoa(requestedCount)+"</RequestedCount><SortCriteria>"+sortCriteria+"</SortCriteria>", "s:Body"); 
 	if err != nil { return browseResponse {}, err }; data := browseResponse {}
-	err = xml.Unmarshal([]byte(res), &data); if err != nil { return browseResponse {}, err }
-	err = unmarshalMetaData(data.Result, &data.ResultParsed); return data, err}
+	err = xml.Unmarshal([]byte(res), &data); return data, err}
  
 // TODO: Test
-func(zp *ZonePlayer ) CreateObject(containerID string, elements string) (createObjectResponse, error ) { res, err := zp.SendContentDirectory("CreateObject", "<ContainerID>"+containerID+"</ContainerID><Elements>"+elements+"</Elements>", ""); 
+func(zp *ZonePlayer ) CreateObject(containerID string, elements string) (createObjectResponse, error ) { res, err := zp.SendContentDirectory("CreateObject", "<ContainerID>"+containerID+"</ContainerID><Elements>"+elements+"</Elements>", "s:Body"); 
 	if err != nil { return createObjectResponse {}, err }; data := createObjectResponse {}
 	err = xml.Unmarshal([]byte(res), &data); return data, err}
  
@@ -50,43 +54,50 @@ func(zp *ZonePlayer ) DestroyObject(objectID string) ( error ) { _, err := zp.Se
 // `objectID` may be one of `Gonos.ContentTypes.*` or a custom id
 // 
 // TODO: Test
-func(zp *ZonePlayer ) FindPrefix(objectID string, prefix string) ( findPrefix,error ) { res, err := zp.SendContentDirectory("FindPrefix", "<ObjectID>"+objectID+"</ObjectID><Prefix>"+prefix+"</Prefix>", ""); 
+func(zp *ZonePlayer ) FindPrefix(objectID string, prefix string) ( findPrefix,error ) { res, err := zp.SendContentDirectory("FindPrefix", "<ObjectID>"+objectID+"</ObjectID><Prefix>"+prefix+"</Prefix>", "s:Body"); 
 	if err != nil { return findPrefix {}, err }; data := findPrefix {}
 	err = xml.Unmarshal([]byte(res), &data); return data, err}
  
-// TODO: Test + Implement
+// TODO: Test 
 func(zp *ZonePlayer ) GetAlbumArtistDisplayOption() ( string, error ) { return zp.SendContentDirectory("GetAlbumArtistDisplayOption", "", "AlbumArtistDisplayOption")}
  
-// TODO: Test + Implement
-func(zp *ZonePlayer ) GetAllPrefixLocations() ( error ) { _, err := zp.SendContentDirectory("GetAllPrefixLocations", "", ""); return err }
+// `objectID` may be one of `Gonos.ContentTypes.*` or a custom id
+// 
+// TODO: Test 
+func(zp *ZonePlayer ) GetAllPrefixLocations(objectID string) ( getAllPrefixLocationsResponse,error ) { res, err := zp.SendContentDirectory("GetAllPrefixLocations", "<ObjectID>"+objectID+"</ObjectID>", "s:Body"); 
+	if err != nil { return  getAllPrefixLocationsResponse {}, err }; data :=  getAllPrefixLocationsResponse {}
+	err = xml.Unmarshal([]byte(res), &data); return data, err}
  
-// TODO: Test + Implement
-func(zp *ZonePlayer ) GetBrowseable() ( error ) { _, err := zp.SendContentDirectory("GetBrowseable", "", ""); return err }
+// TODO: Test 
+func(zp *ZonePlayer ) GetBrowseable() ( bool, error ) { res, err := zp.SendContentDirectory("GetBrowseable", "", "IsBrowseable"); return res == "1", err }
  
-// TODO: Test + Implement
-func(zp *ZonePlayer ) GetLastIndexChange() ( error ) { _, err := zp.SendContentDirectory("GetLastIndexChange", "", ""); return err }
+// TODO: Test 
+func(zp *ZonePlayer ) GetLastIndexChange() ( string, error ) { return zp.SendContentDirectory("GetLastIndexChange", "", "LastIndexChange"); }
  
-// TODO: Test + Implement
-func(zp *ZonePlayer ) GetSearchCapabilities() ( error ) { _, err := zp.SendContentDirectory("GetSearchCapabilities", "", ""); return err }
+// TODO: Test 
+func(zp *ZonePlayer ) GetSearchCapabilities() (string, error ) {return zp.SendContentDirectory("GetSearchCapabilities", "", "SearchCaps"); }
  
-// TODO: Test + Implement
-func(zp *ZonePlayer ) GetShareIndexInProgress() ( error ) { _, err := zp.SendContentDirectory("GetShareIndexInProgress", "", ""); return err }
+// TODO: Test 
+func(zp *ZonePlayer ) GetShareIndexInProgress() (bool, error ) { res, err := zp.SendContentDirectory("GetShareIndexInProgress", "", "IsIndexing"); return res=="1", err }
  
-// TODO: Test + Implement
-func(zp *ZonePlayer ) GetSortCapabilities() ( error ) { _, err := zp.SendContentDirectory("GetSortCapabilities", "", ""); return err }
+// TODO: Test 
+func(zp *ZonePlayer ) GetSortCapabilities() ( string, error ) {return zp.SendContentDirectory("GetSortCapabilities", "", "SortCaps"); }
  
-// TODO: Test + Implement
-func(zp *ZonePlayer ) GetSystemUpdateID() ( error ) { _, err := zp.SendContentDirectory("GetSystemUpdateID", "", ""); return err }
+// TODO: Test 
+func(zp *ZonePlayer ) GetSystemUpdateID() ( int, error ) { res, err := zp.SendContentDirectory("GetSystemUpdateID", "", "Id"); if err != nil { return 0, err }; return strconv.Atoi(res)}
+
  
-// TODO: Test + Implement
-func(zp *ZonePlayer ) RefreshShareIndex() ( error ) { _, err := zp.SendContentDirectory("RefreshShareIndex", "", ""); return err }
+// TODO: Test 
+func(zp *ZonePlayer ) RefreshShareIndex(albumArtistDisplayOption string) ( error ) { _, err := zp.SendContentDirectory("RefreshShareIndex", "<AlbumArtistDisplayOption>"+albumArtistDisplayOption+"</AlbumArtistDisplayOption>", ""); return err }
  
-// TODO: Test + Implement
-func(zp *ZonePlayer ) RequestResort() ( error ) { _, err := zp.SendContentDirectory("RequestResort", "", ""); return err }
+// TODO: Test 
+func(zp *ZonePlayer ) RequestResort(sortOrder string) ( error ) { _, err := zp.SendContentDirectory("RequestResort", "<SortOrder>sortOrder</SortOrder>", ""); return err }
  
-// TODO: Test + Implement
-func(zp *ZonePlayer ) SetBrowseable() ( error ) { _, err := zp.SendContentDirectory("SetBrowseable", "", ""); return err }
+// TODO: Test 
+func(zp *ZonePlayer ) SetBrowseable(state bool) ( error ) { _, err := zp.SendContentDirectory("SetBrowseable", "<Browseable>"+boolTo10( state )+"</Browseable>", ""); return err }
  
-// TODO: Test + Implement
-func(zp *ZonePlayer ) UpdateObject() ( error ) { _, err := zp.SendContentDirectory("UpdateObject", "", ""); return err }
+// `objectID` may be one of `Gonos.ContentTypes.*` or a custom id
+// 
+// TODO: Test 
+func(zp *ZonePlayer ) UpdateObject(objectID string ,currentTagValue string ,newTagValue string,) ( error ) { _, err := zp.SendContentDirectory("UpdateObject", "<ObjectID>"+objectID+"</ObjectID><CurrentTagValue>"+currentTagValue+"</CurrentTagValue><NewTagValue>"+newTagValue+"</NewTagValue>", ""); return err }
 
