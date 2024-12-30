@@ -19,7 +19,7 @@ type (
 	}
 )
 
-// TODO: Test
+// Get simplified info about currently playing track.
 func (zp *ZonePlayer) GetTrackInfo() (*trackInfo, error) {
 	info, err := zp.GetPositionInfo()
 	if err != nil {
@@ -38,49 +38,49 @@ func (zp *ZonePlayer) GetTrackInfo() (*trackInfo, error) {
 	}, nil
 }
 
-// TODO: Test
+// Get current transport state, this can be one of `STOPPED`, `PLAYING`, `PAUSED_PLAYBACK`, `TRANSITIONING`.
 func (zp *ZonePlayer) GetCurrentTransportState() (string, error) {
 	res, err := zp.GetTransportInfo()
 	return res.CurrentTransportState, err
 }
 
-// TODO: Test
+// Short for `zp.GetTrackInfo() == "STOPPED"`.
 func (zp *ZonePlayer) GetStop() (bool, error) {
 	state, err := zp.GetCurrentTransportState()
 	return state == "STOPPED", err
 }
 
-// TODO: Test
+// Short for `zp.GetTrackInfo() == "PLAYING"`.
 func (zp *ZonePlayer) GetPlay() (bool, error) {
 	state, err := zp.GetCurrentTransportState()
 	return state == "PLAYING", err
 }
 
-// TODO: Test
+// Short for `zp.GetTrackInfo() == "PAUSED_PLAYBACK"`.
 func (zp *ZonePlayer) GetPause() (bool, error) {
 	state, err := zp.GetCurrentTransportState()
 	return state == "PAUSED_PLAYBACK", err
 }
 
-// TODO: Test
+// Short for `zp.GetTrackInfo() == "TRANSITIONING"`.
 func (zp *ZonePlayer) GetTransitioning() (bool, error) {
 	state, err := zp.GetCurrentTransportState()
 	return state == "TRANSITIONING", err
 }
 
-// TODO: Test
+// Get current transport status.
 func (zp *ZonePlayer) GetCurrentTransportStatus() (string, error) {
 	res, err := zp.GetTransportInfo()
 	return res.CurrentTransportStatus, err
 }
 
-// TODO: Test
+// Get current speed.
 func (zp *ZonePlayer) GetCurrentSpeed() (string, error) {
 	res, err := zp.GetTransportInfo()
 	return res.CurrentSpeed, err
 }
 
-// TODO: Test
+// Will always return false for all if a third party application is controling playback.
 func (zp *ZonePlayer) GetPlayMode() (shuffle bool, repeat bool, repeatOne bool, err error) {
 	res, err := zp.GetTransportSettings()
 	if err != nil {
@@ -93,13 +93,13 @@ func (zp *ZonePlayer) GetPlayMode() (shuffle bool, repeat bool, repeatOne bool, 
 	return modeBools[0], modeBools[1], modeBools[2], nil
 }
 
-// TODO: test
+// Will always return false if a third party application is controling playback.
 func (zp *ZonePlayer) GetShuffle() (bool, error) {
 	shuffle, _, _, err := zp.GetPlayMode()
 	return shuffle, err
 }
 
-// TODO: test
+// Will always disable other playmodes if a third party application is controling playback, as we can not determine the actual state.
 func (zp *ZonePlayer) SetShuffle(state bool) error {
 	_, repeat, repeatOne, err := zp.GetPlayMode()
 	if err != nil {
@@ -108,13 +108,15 @@ func (zp *ZonePlayer) SetShuffle(state bool) error {
 	return zp.SetPlayMode(state, repeat, repeatOne)
 }
 
-// TODO: test
+// Will always return false if a third party application is controling playback.
 func (zp *ZonePlayer) GetRepeat() (bool, error) {
 	_, repeat, _, err := zp.GetPlayMode()
 	return repeat, err
 }
 
-// TODO: test
+// If enabled then repeat one will be disabled.
+//
+// Will always disable other playmodes if a third party application is controling playback, as we can not determine the actual state.
 func (zp *ZonePlayer) SetRepeat(state bool) error {
 	shuffle, _, repeatOne, err := zp.GetPlayMode()
 	if err != nil {
@@ -123,13 +125,15 @@ func (zp *ZonePlayer) SetRepeat(state bool) error {
 	return zp.SetPlayMode(shuffle, state, repeatOne && !state)
 }
 
-// TODO: test
+// Will always return false if a third party application is controling playback.
 func (zp *ZonePlayer) GetRepeatOne() (bool, error) {
 	_, _, repeatOne, err := zp.GetPlayMode()
 	return repeatOne, err
 }
 
-// TODO: test
+// If enabled then repeat will be disabled.
+//
+// Will always disable other playmodes if a third party application is controling playback, as we can not determine the actual state.
 func (zp *ZonePlayer) SetRepeatOne(state bool) error {
 	shuffle, repeat, _, err := zp.GetPlayMode()
 	if err != nil {
@@ -138,28 +142,30 @@ func (zp *ZonePlayer) SetRepeatOne(state bool) error {
 	return zp.SetPlayMode(shuffle, repeat && !state, state)
 }
 
-// TODO: Test
+// Returns `NOT_IMPLEMENTED`.
 func (zp *ZonePlayer) GetRecQualityMode() (string, error) {
 	res, err := zp.GetTransportSettings()
 	return res.RecQualityMode, err
 }
 
-// TODO: Test
+// Go to track by index (index starts at 1).
+//
+// Will always fail if a third party application is controling playback.
 func (zp *ZonePlayer) SeekTrack(track int) error {
-	return zp.Seek("TRACK_NR", strconv.Itoa(max(1, track)))
+	return zp.Seek(SeekModes.Track, strconv.Itoa(max(1, track)))
 }
 
-// TODO: Test
+// Go to track time (Absolute).
 func (zp *ZonePlayer) SeekTime(seconds int) error {
-	return zp.Seek("REL_TIME", time.Time.Add(time.Time{}, time.Second*time.Duration(max(0, seconds))).Format("15:04:05"))
+	return zp.Seek(SeekModes.Relative, time.Time.Add(time.Time{}, time.Second*time.Duration(max(0, seconds))).Format("15:04:05"))
 }
 
-// TODO: Test
+// Go to track time (Relative).
 func (zp *ZonePlayer) SeekTimeDelta(seconds int) error {
 	prefix := "+"
 	if seconds < 0 {
 		seconds = -seconds
 		prefix = "-"
 	}
-	return zp.Seek("TIME_DELTA", prefix+time.Time.Add(time.Time{}, time.Second*time.Duration(seconds)).Format("15:04:05"))
+	return zp.Seek(SeekModes.Absolute, prefix+time.Time.Add(time.Time{}, time.Second*time.Duration(seconds)).Format("15:04:05"))
 }

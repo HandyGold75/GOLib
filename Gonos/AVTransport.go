@@ -321,7 +321,7 @@ func (zp *ZonePlayer) GetTransportInfo() (getTransportInfoResponse, error) {
 
 // TODO: Test
 func (zp *ZonePlayer) GetTransportSettings() (getTransportSettingsResponse, error) {
-	res, err := zp.SendAVTransport("GetTransportInfo", "", "s:Body")
+	res, err := zp.SendAVTransport("GetTransportSettings", "", "s:Body")
 	if err != nil {
 		return getTransportSettingsResponse{}, err
 	}
@@ -412,12 +412,14 @@ func (zp *ZonePlayer) RunAlarm(alarmID int, loggedStartTime string, duration str
 
 // `contentType` should be one of `Gonos.ContentTypes.*`
 //
-// TODO: Test
+// Returns the objectID of the new que.
 func (zp *ZonePlayer) SaveQueue(title string) (string, error) {
 	return zp.SendAVTransport("SaveQueue", "<Title>"+title+"</Title><ObjectID></ObjectID>", "AssignedObjectID")
 }
 
-// TODO: Test
+// Prefer methods `zp.SeekTrack`, `zp.SeekTime` or `zp.SeekTimeDelta`.
+//
+// `unit` should be one of `Gonos.SeekModes.*`.
 func (zp *ZonePlayer) Seek(unit string, target string) error {
 	_, err := zp.SendAVTransport("Seek", "<Unit>"+unit+"</Unit><Target>"+target+"</Target>", "")
 	return err
