@@ -3,19 +3,21 @@ package Gonos
 import (
 	"encoding/xml"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
 )
 
 type (
-	errSonos     struct{ ErrUnexpectedResponse, ErrInvalidIPAdress, ErrNoZonePlayerFound, ErrInvalidEndpoint, ErrInvalidContentType, ErrInvalidPlayMode error }
-	contentTypes = struct{ Artist, Albumartist, Album, Genre, Composer, Track, Playlists, MusicLibrary, Share, SonosPlaylists, SonosFavorites, RadioStations, RadioShows, Queues, QueueMain string }
-	playmodes    = struct{ Normal, RepeatAll, RepeatOne, ShuffleNorepeat, Shuffle, ShuffleRepeaOne string }
+	errSonos                      struct{ ErrUnexpectedResponse, ErrInvalidIPAdress, ErrNoZonePlayerFound, ErrInvalidEndpoint, ErrInvalidContentType, ErrInvalidPlayMode error }
+	albumArtistDisplayOptionTypes = struct{ WMP, ITunes, None string }
+	contentTypes                  = struct{ MusicLibrarys, Artist, AlbumArtist, Album, Genre, Composer, Tracks, Playlists, Share, SonosPlaylists, SonosFavorites, Radios, RadioStations, RadioShows, Queues, QueueMain, QueueSecond string }
+	playModes                     = struct{ Normal, RepeatAll, RepeatOne, ShuffleNorepeat, Shuffle, ShuffleRepeaOne string }
+	seekModes                     = struct{ Track, Absolute, Relative string }
 
 	ZonePlayer struct {
 		IpAddress net.IP
@@ -50,25 +52,39 @@ var ErrSonos = errSonos{
 	ErrInvalidPlayMode:    errors.New("invalid play mode"),
 }
 
+var AlbumArtistDisplayOptionTypes = albumArtistDisplayOptionTypes{
+	WMP:    "WMP",
+	ITunes: "ITUNES",
+	None:   "NONE",
+}
+
 var ContentTypes = contentTypes{
+	MusicLibrarys:  "A:",
 	Artist:         "A:ARTIST",
-	Albumartist:    "A:ALBUMARTIST",
+	AlbumArtist:    "A:ALBUMARTIST",
 	Album:          "A:ALBUM",
 	Genre:          "A:GENRE",
 	Composer:       "A:COMPOSER",
-	Track:          "A:TRACKS",
+	Tracks:         "A:TRACKS",
 	Playlists:      "A:PLAYLISTS",
-	MusicLibrary:   "A",
 	Share:          "S:",
 	SonosPlaylists: "SQ:",
 	SonosFavorites: "FV:2",
+	Radios:         "R:0",
 	RadioStations:  "R:0/0",
 	RadioShows:     "R:0/1",
 	Queues:         "Q:",
 	QueueMain:      "Q:0",
+	QueueSecond:    "Q:1",
 }
 
-var PlayModes = playmodes{
+var SeekModes = seekModes{
+	Track:    "TRACK_NR",
+	Relative: "REL_TIME",
+	Absolute: "TIME_DELTA",
+}
+
+var PlayModes = playModes{
 	Normal:          "NORMAL",
 	RepeatAll:       "REPEAT_ALL",
 	RepeatOne:       "REPEAT_ONE",
@@ -100,6 +116,17 @@ func unmarshalMetaData[T any](data string, v T) error {
 	data = strings.ReplaceAll(data, "&quot;", "\"")
 	data = strings.ReplaceAll(data, "&gt;", ">")
 	data = strings.ReplaceAll(data, "&lt;", "<")
+	if reflect.TypeOf(v).Elem().Kind() == reflect.Slice {
+		vTmp := struct {
+			XMLName xml.Name `xml:"DIDL-Lite"`
+			Items   T        `xml:"item"`
+		}{Items: v}
+		if err := xml.Unmarshal([]byte(data), &vTmp); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	data, err := extractTag(data, "DIDL-Lite")
 	if err != nil {
 		return err
@@ -111,11 +138,8 @@ func unmarshalMetaData[T any](data string, v T) error {
 }
 
 func extractTag(data, tag string) (string, error) {
-	if start, end := strings.Index(data, "<"+tag+">"), strings.Index(data, "</"+tag+">"); start != -1 && end != -1 {
-		return data[start+len(tag)+2 : end], nil
-	}
-	if start, end := strings.Index(data, "<"+tag+" "), strings.Index(data, "</"+tag+">"); start != -1 && end != -1 {
-		data = data[start+len(tag)+2 : end]
+	if start, end := strings.Index(data, "<"+tag), strings.LastIndex(data, "</"+tag+">"); start != -1 && end != -1 {
+		data = data[start+len(tag) : end]
 		if mid := strings.Index(data, ">"); mid != -1 {
 			return data[mid+1:], nil
 		}
@@ -332,10 +356,6 @@ func (zp *ZonePlayer) sendCommand(uri string, endpoint string, action string, bo
 	if targetTag != "" {
 		return extractTag(resultStr, targetTag)
 	} else if resultStr != `<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body><u:`+action+`Response xmlns:u="urn:schemas-upnp-org:service:`+endpoint+`:1"></u:`+action+`Response></s:Body></s:Envelope>` {
-		fmt.Print("\r\n" + resultStr)
-		fmt.Print("\r\n" + `<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body><u:` + action + `Response xmlns:u="urn:schemas-upnp-org:service:` + endpoint + `:1"></u:` + action + `Response></s:Body></s:Envelope>`)
-		fmt.Print("\r\n")
-		fmt.Print("\r\n")
 		return resultStr, ErrSonos.ErrUnexpectedResponse
 	}
 	return resultStr, nil

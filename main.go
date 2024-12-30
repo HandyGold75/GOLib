@@ -3,10 +3,11 @@ package main
 import (
 	"Gonos"
 	"fmt"
+	"time"
 )
 
 func main() {
-	zps, err := Gonos.ScanZonePlayer("10.69.3.0/24")
+	zps, err := Gonos.ScanZonePlayer("10.69.3.0/24", time.Second)
 	if err != nil {
 		panic(err)
 	}
@@ -15,7 +16,10 @@ func main() {
 	out, err := zp.GetQue()
 	if err != nil {
 		fmt.Println(err)
-		fmt.Println()
+		return
 	}
-	fmt.Println(out)
+
+	for _, f := range out.Tracks {
+		fmt.Println(f.Title)
+	}
 }
