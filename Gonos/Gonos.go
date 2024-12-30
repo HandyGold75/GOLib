@@ -159,44 +159,48 @@ func NewZonePlayer(ipAddress string) (*ZonePlayer, error) {
 	return zp, nil
 }
 
-// Warning, returns the first device that response, other device responses are ignored.
+// Create new ZonePlayer using discovery controling a Sonos speaker.
 //
-// Create new ZonePlayer using discovery controling a Sonos speaker. (TODO: Test)
-func DiscoverZonePlayer() (*ZonePlayer, error) {
+// `timout` of 1 second is recomended.
+func DiscoverZonePlayer(timeout time.Duration) ([]*ZonePlayer, error) {
 	conn, err := net.DialUDP("udp", &net.UDPAddr{Port: 1900}, &net.UDPAddr{IP: net.IPv4(239, 255, 255, 250), Port: 1900})
 	if err != nil {
-		return &ZonePlayer{}, err
+		return []*ZonePlayer{}, err
 	}
 	defer conn.Close()
-
-	chOut := make(chan string)
-	go func() {
-		buf := make([]byte, 1024)
-		_, addr, err := conn.ReadFrom(buf)
-		if err != nil {
-			chOut <- ""
-			return
-		}
-		chOut <- strings.Split(addr.String(), ":")[0]
-	}()
 
 	for i := 0; i < 3; i++ {
 		_, _ = conn.Write([]byte("M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: \"ssdp:discover\"\r\nMX: 1\r\nST: urn:schemas-upnp-org:device:ZonePlayer:1\r\n\r\n"))
 	}
 
-	select {
-	case addr := <-chOut:
-		if addr == "" {
-			return &ZonePlayer{}, ErrSonos.ErrNoZonePlayerFound
+	zps := []*ZonePlayer{}
+	for {
+		buf := make([]byte, 1024)
+		conn.SetDeadline(time.Now().Add(timeout))
+		_, addr, err := conn.ReadFrom(buf)
+		if err.(*net.OpError).Timeout() {
+			break
+		} else if err != nil {
+			return zps, err
 		}
-		return NewZonePlayer(addr)
-	case <-time.After(time.Second):
-		return &ZonePlayer{}, ErrSonos.ErrNoZonePlayerFound
+
+		zp, err := NewZonePlayer(strings.Split(addr.String(), ":")[0])
+		if err != nil {
+			continue
+		}
+		zps = append(zps, zp)
 	}
+
+	if len(zps) <= 0 {
+		return zps, ErrSonos.ErrNoZonePlayerFound
+	}
+	return zps, nil
 }
 
 // Create new ZonePlayer using network scanning controling a Sonos speaker.
-func ScanZonePlayer(cidr string) ([]*ZonePlayer, error) {
+//
+// `timout` of 1 second is recomended.
+func ScanZonePlayer(cidr string, timeout time.Duration) ([]*ZonePlayer, error) {
 	incIP := func(ip net.IP) {
 		for j := len(ip) - 1; j >= 0; j-- {
 			ip[j]++
@@ -235,7 +239,6 @@ func ScanZonePlayer(cidr string) ([]*ZonePlayer, error) {
 	if len(zps) <= 0 {
 		return zps, ErrSonos.ErrNoZonePlayerFound
 	}
-
 	return zps, nil
 }
 
