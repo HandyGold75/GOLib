@@ -39,3 +39,13 @@ func (h *Helper) SetTargetRoomName(targetRoomName string) error {
 	_, err := h.deviceProperties.Send("SetZoneAttributes", "<DesiredTargetRoomName>"+targetRoomName+"</DesiredTargetRoomName>", "")
 	return err
 }
+
+// Short for `zp.DeviceProperties.GetLEDState`.
+func (h *Helper) GetLED() (bool, error) {
+	return h.deviceProperties.GetLEDState()
+}
+
+// Short for `zp.DeviceProperties.SetLEDState`.
+func (h *Helper) SetLED(state bool) error {
+	return h.deviceProperties.SetLEDState(state)
+}

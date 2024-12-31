@@ -45,16 +45,31 @@ func (h *Helper) GetCurrentTransportState() (string, error) {
 	return res.CurrentTransportState, err
 }
 
+// Short for `zp.AVTransport.Stop`
+func (h *Helper) Stop() error {
+	return h.aVTransport.Stop()
+}
+
 // Short for `h.GetCurrentTransportState() == "STOPPED"`.
 func (h *Helper) GetStop() (bool, error) {
 	state, err := h.GetCurrentTransportState()
 	return state == "STOPPED", err
 }
 
+// Short for `zp.AVTransport.Play`
+func (h *Helper) Play() error {
+	return h.aVTransport.Play()
+}
+
 // Short for `h.GetCurrentTransportState() == "PLAYING"`.
 func (h *Helper) GetPlay() (bool, error) {
 	state, err := h.GetCurrentTransportState()
 	return state == "PLAYING", err
+}
+
+// Short for `zp.AVTransport.Pause`
+func (h *Helper) Pause() error {
+	return h.aVTransport.Pause()
 }
 
 // Short for `h.GetCurrentTransportState() == "PAUSED_PLAYBACK"`.
@@ -67,6 +82,16 @@ func (h *Helper) GetPause() (bool, error) {
 func (h *Helper) GetTransitioning() (bool, error) {
 	state, err := h.GetCurrentTransportState()
 	return state == "TRANSITIONING", err
+}
+
+// Short for `zp.AVTransport.Next`.
+func (h *Helper) Next() error {
+	return h.aVTransport.Next()
+}
+
+// Short for `zp.AVTransport.`.
+func (h *Helper) Previous() error {
+	return h.aVTransport.Previous()
 }
 
 // Get current transport status.
@@ -169,4 +194,19 @@ func (h *Helper) SeekTimeDelta(seconds int) error {
 		prefix = "-"
 	}
 	return h.aVTransport.Seek(lib.SeekModes.Absolute, prefix+time.Time.Add(time.Time{}, time.Second*time.Duration(seconds)).Format("15:04:05"))
+}
+
+// Short for `zp.AVTransport.RemoveTrackFromQueue`.
+func (h *Helper) QueRemove(track int) error {
+	return h.aVTransport.RemoveTrackFromQueue(lib.ContentTypes.QueueMain, track)
+}
+
+// Short for `zp.AVTransport.RemoveTrackFromQueue`.
+func (h *Helper) QueSecondRemove(track int) error {
+	return h.aVTransport.RemoveTrackFromQueue(lib.ContentTypes.QueueMain, track)
+}
+
+// Short for `zp.AVTransport.RemoveAllTracksFromQueue`.
+func (h *Helper) QueClear() error {
+	return h.aVTransport.RemoveAllTracksFromQueue()
 }

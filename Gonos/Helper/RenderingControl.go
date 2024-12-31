@@ -132,3 +132,68 @@ func (h *Helper) SetEQSurroundMode(full bool) error {
 func (h *Helper) SetEQHeightChannelLevel(volume int) error {
 	return h.renderingControl.SetEQ("HeightChannelLevel", strconv.Itoa(max(-10, min(10, volume))))
 }
+
+// Short for `zp.RenderingControl.SetLoudness`.
+func (h *Helper) SetLoudness(volume bool) error {
+	return h.renderingControl.SetLoudness(volume)
+}
+
+// Short for `zp.RenderingControl.GetLoudness`.
+func (h *Helper) GetLoudness() (bool, error) {
+	return h.renderingControl.GetLoudness()
+}
+
+// Short for `zp.RenderingControl.SetMute`.
+func (h *Helper) SetMute(volume bool) error {
+	return h.renderingControl.SetMute(volume)
+}
+
+// Short for `zp.RenderingControl.GetMute`.
+func (h *Helper) GetMute() (bool, error) {
+	return h.renderingControl.GetMute()
+}
+
+// Short for `zp.RenderingControl.SetBass`.
+func (h *Helper) SetBass(volume int) error {
+	return h.renderingControl.SetBass(volume)
+}
+
+// Short for `zp.RenderingControl.GetBass`.
+func (h *Helper) GetBass() (int, error) {
+	return h.renderingControl.GetBass()
+}
+
+// Short for `zp.RenderingControl.SetTreble`.
+func (h *Helper) SetTreble(volume int) error {
+	return h.renderingControl.SetTreble(volume)
+}
+
+// Short for `zp.RenderingControl.GetTreble`.
+func (h *Helper) GetTreble() (int, error) {
+	return h.renderingControl.GetTreble()
+}
+
+// Short for `zp.RenderingControl.SetVolume`.
+func (h *Helper) SetVolume(volume int) error {
+	return h.renderingControl.SetVolume(volume)
+}
+
+// Short for `zp.RenderingControl.SetRelativeVolume`.
+func (h *Helper) SetVolumeDelta(volume int) (int, error) {
+	return h.renderingControl.SetRelativeVolume(volume)
+}
+
+// Short for `zp.RenderingControl.GetVolume`.
+func (h *Helper) GetVolume() (int, error) {
+	return h.renderingControl.GetVolume()
+}
+
+// Short for `zp.RenderingControl.SetVolumeDB`.
+func (h *Helper) SetVolumeDB(volume int) error {
+	return h.renderingControl.SetVolumeDB(volume)
+}
+
+// Short for `zp.RenderingControl.GetVolumeDB`.
+func (h *Helper) GetVolumeDB() (int, error) {
+	return h.renderingControl.GetVolumeDB()
+}
