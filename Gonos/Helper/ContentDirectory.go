@@ -1,6 +1,7 @@
-package Gonos
+package Helper
 
 import (
+	"Gonos/lib"
 	"fmt"
 	"io"
 	"strings"
@@ -80,17 +81,17 @@ type (
 	}
 )
 
-// Prefer methods `zp.LibraryArtist`, `zp.LibraryAlbumArtist`, `zp.LibraryAlbum`, `zp.LibraryGenre`, `zp.LibraryComposer`, `zp.LibraryTracks`, `zp.LibraryPlaylists`.
+// Prefer methods `h.LibraryArtist`, `h.LibraryAlbumArtist`, `h.LibraryAlbum`, `h.LibraryGenre`, `h.LibraryComposer`, `h.LibraryTracks`, `h.LibraryPlaylists`.
 //
-// `objectID` may be one of `Gonos.ContentTypes.*` or a custom id
-func (zp *ZonePlayer) BrowseMusicLibrary(objectID string) (libraryInfo, error) {
-	info, err := zp.Browse(objectID, "BrowseDirectChildren", "dc:title,res,dc:creator,upnp:artist,upnp:album,upnp:albumArtURI", 0, 0, "")
+// `objectID` may be one of `Gonos.lib.ContentTypes.*` or a custom id
+func (h *Helper) BrowseMusicLibrary(objectID string) (libraryInfo, error) {
+	info, err := h.contentDirectory.Browse(objectID, "BrowseDirectChildren", "dc:title,res,dc:creator,upnp:artist,upnp:album,upnp:albumArtURI", 0, 0, "")
 	if err != nil {
 		return libraryInfo{}, err
 	}
 	metadata := []browseResponseMetaDataLibrary{}
 	fmt.Println(strings.ReplaceAll(info.Result, "id=", "\r\nid="))
-	err = unmarshalMetaData(info.Result, &metadata)
+	err = lib.UnmarshalMetaData(info.Result, &metadata)
 	if err == io.EOF {
 		return libraryInfo{}, nil
 	} else if err != nil {
@@ -99,7 +100,7 @@ func (zp *ZonePlayer) BrowseMusicLibrary(objectID string) (libraryInfo, error) {
 	librarys := []libraryInfoItem{}
 	for _, library := range metadata {
 		librarys = append(librarys, libraryInfoItem{
-			AlbumArtURI: "http://" + zp.IpAddress.String() + ":1400" + library.AlbumArtUri,
+			AlbumArtURI: library.AlbumArtUri,
 			Title:       library.Title,
 			Description: library.Description,
 			Class:       library.Class,
@@ -109,51 +110,44 @@ func (zp *ZonePlayer) BrowseMusicLibrary(objectID string) (libraryInfo, error) {
 	return libraryInfo{Count: info.NumberReturned, TotalCount: info.TotalMatches, Librarys: librarys}, nil
 }
 
-// TODO: Test
-func (zp *ZonePlayer) GetLibraryArtist() (libraryInfo, error) {
-	return zp.BrowseMusicLibrary(ContentTypes.Artist)
+func (h *Helper) GetLibraryArtist() (libraryInfo, error) {
+	return h.BrowseMusicLibrary(lib.ContentTypes.Artist)
 }
 
-// TODO: Test
-func (zp *ZonePlayer) GetLibraryAlbumArtist() (libraryInfo, error) {
-	return zp.BrowseMusicLibrary(ContentTypes.AlbumArtist)
+func (h *Helper) GetLibraryAlbumArtist() (libraryInfo, error) {
+	return h.BrowseMusicLibrary(lib.ContentTypes.AlbumArtist)
 }
 
-// TODO: Test
-func (zp *ZonePlayer) GetLibraryAlbum() (libraryInfo, error) {
-	return zp.BrowseMusicLibrary(ContentTypes.Album)
+func (h *Helper) GetLibraryAlbum() (libraryInfo, error) {
+	return h.BrowseMusicLibrary(lib.ContentTypes.Album)
 }
 
-// TODO: Test
-func (zp *ZonePlayer) GetLibraryGenre() (libraryInfo, error) {
-	return zp.BrowseMusicLibrary(ContentTypes.Genre)
+func (h *Helper) GetLibraryGenre() (libraryInfo, error) {
+	return h.BrowseMusicLibrary(lib.ContentTypes.Genre)
 }
 
-// TODO: Test
-func (zp *ZonePlayer) GetLibraryComposer() (libraryInfo, error) {
-	return zp.BrowseMusicLibrary(ContentTypes.Composer)
+func (h *Helper) GetLibraryComposer() (libraryInfo, error) {
+	return h.BrowseMusicLibrary(lib.ContentTypes.Composer)
 }
 
-// TODO: Test
-func (zp *ZonePlayer) GetLibraryTracks() (libraryInfo, error) {
-	return zp.BrowseMusicLibrary(ContentTypes.Tracks)
+func (h *Helper) GetLibraryTracks() (libraryInfo, error) {
+	return h.BrowseMusicLibrary(lib.ContentTypes.Tracks)
 }
 
-// TODO: Test
-func (zp *ZonePlayer) GetLibraryPlaylists() (libraryInfo, error) {
-	return zp.BrowseMusicLibrary(ContentTypes.Playlists)
+func (h *Helper) GetLibraryPlaylists() (libraryInfo, error) {
+	return h.BrowseMusicLibrary(lib.ContentTypes.Playlists)
 }
 
-// Prefer methods `zp.GetShare`, `zp.GetSonosPlaylists`, `zp.GetSonosFavorites`, `zp.GetRadioStations` or `zp.GetRadioShows`.
+// Prefer methods `h.GetShare`, `h.GetSonosPlaylists`, `h.GetSonosFavorites`, `h.GetRadioStations` or `h.GetRadioShows`.
 //
-// `objectID` may be one of `Gonos.ContentTypes.*` or a custom id
-func (zp *ZonePlayer) BrowsePlaylist(objectID string) (playlistInfo, error) {
-	info, err := zp.Browse(objectID, "BrowseDirectChildren", "dc:title,res,dc:creator,upnp:artist,upnp:album,upnp:albumArtURI", 0, 0, "")
+// `objectID` may be one of `Gonos.lib.ContentTypes.*` or a custom id
+func (h *Helper) BrowsePlaylist(objectID string) (playlistInfo, error) {
+	info, err := h.contentDirectory.Browse(objectID, "BrowseDirectChildren", "dc:title,res,dc:creator,upnp:artist,upnp:album,upnp:albumArtURI", 0, 0, "")
 	if err != nil {
 		return playlistInfo{}, err
 	}
 	metadata := []browseResponseMetaDataQuePlaylist{}
-	err = unmarshalMetaData(info.Result, &metadata)
+	err = lib.UnmarshalMetaData(info.Result, &metadata)
 	if err == io.EOF {
 		return playlistInfo{}, nil
 	} else if err != nil {
@@ -162,7 +156,7 @@ func (zp *ZonePlayer) BrowsePlaylist(objectID string) (playlistInfo, error) {
 	playlists := []playlistInfoItem{}
 	for _, playlist := range metadata {
 		playlists = append(playlists, playlistInfoItem{
-			AlbumArtURI: "http://" + zp.IpAddress.String() + ":1400" + playlist.AlbumArtUri,
+			AlbumArtURI: playlist.AlbumArtUri,
 			Title:       playlist.Title,
 			Description: playlist.Description,
 			Class:       playlist.Class,
@@ -172,39 +166,35 @@ func (zp *ZonePlayer) BrowsePlaylist(objectID string) (playlistInfo, error) {
 	return playlistInfo{Count: info.NumberReturned, TotalCount: info.TotalMatches, Playlists: playlists}, nil
 }
 
-// TODO: Test
-func (zp *ZonePlayer) GetShare() (playlistInfo, error) {
-	return zp.BrowsePlaylist(ContentTypes.Share)
+func (h *Helper) GetShare() (playlistInfo, error) {
+	return h.BrowsePlaylist(lib.ContentTypes.Share)
 }
 
-// TODO: Test
-func (zp *ZonePlayer) GetSonosPlaylists() (playlistInfo, error) {
-	return zp.BrowsePlaylist(ContentTypes.SonosPlaylists)
+func (h *Helper) GetSonosPlaylists() (playlistInfo, error) {
+	return h.BrowsePlaylist(lib.ContentTypes.SonosPlaylists)
 }
 
 // Get Sonos playlists, in case no sonos playlists are present a empty playlist will be returned
-func (zp *ZonePlayer) GetSonosFavorites() (playlistInfo, error) {
-	return zp.BrowsePlaylist(ContentTypes.SonosFavorites)
+func (h *Helper) GetSonosFavorites() (playlistInfo, error) {
+	return h.BrowsePlaylist(lib.ContentTypes.SonosFavorites)
 }
 
-// TODO: Test
-func (zp *ZonePlayer) GetRadioStations() (playlistInfo, error) {
-	return zp.BrowsePlaylist(ContentTypes.RadioStations)
+func (h *Helper) GetRadioStations() (playlistInfo, error) {
+	return h.BrowsePlaylist(lib.ContentTypes.RadioStations)
 }
 
-// TODO: Test
-func (zp *ZonePlayer) GetRadioShows() (playlistInfo, error) {
-	return zp.BrowsePlaylist(ContentTypes.RadioShows)
+func (h *Helper) GetRadioShows() (playlistInfo, error) {
+	return h.BrowsePlaylist(lib.ContentTypes.RadioShows)
 }
 
-// Prefer methods `zp.GetQue` or `zp.GetQueSecond`.
-func (zp *ZonePlayer) BrowseQue(objectID string) (queInfo, error) {
-	info, err := zp.Browse(objectID, "BrowseDirectChildren", "dc:title,res,dc:creator,upnp:artist,upnp:album,upnp:albumArtURI", 0, 0, "")
+// Prefer methods `h.GetQue` or `h.GetQueSecond`.
+func (h *Helper) BrowseQue(objectID string) (queInfo, error) {
+	info, err := h.contentDirectory.Browse(objectID, "BrowseDirectChildren", "dc:title,res,dc:creator,upnp:artist,upnp:album,upnp:albumArtURI", 0, 0, "")
 	if err != nil {
 		return queInfo{}, err
 	}
 	metadata := []browseResponseMetaDataQue{}
-	err = unmarshalMetaData(info.Result, &metadata)
+	err = lib.UnmarshalMetaData(info.Result, &metadata)
 	if err == io.EOF {
 		return queInfo{}, nil
 	} else if err != nil {
@@ -214,7 +204,7 @@ func (zp *ZonePlayer) BrowseQue(objectID string) (queInfo, error) {
 	tracks := []queInfoItem{}
 	for _, track := range metadata {
 		tracks = append(tracks, queInfoItem{
-			AlbumArtURI: "http://" + zp.IpAddress.String() + ":1400" + track.AlbumArtUri,
+			AlbumArtURI: track.AlbumArtUri,
 			Title:       track.Title,
 			Class:       track.Class,
 			Creator:     track.Creator,
@@ -227,13 +217,13 @@ func (zp *ZonePlayer) BrowseQue(objectID string) (queInfo, error) {
 // Get que, in case no que is active a empty que will be returned.
 //
 // Will return incorrect data if a third party application is controling playback.
-func (zp *ZonePlayer) GetQue() (queInfo, error) {
-	return zp.BrowseQue(ContentTypes.QueueMain)
+func (h *Helper) GetQue() (queInfo, error) {
+	return h.BrowseQue(lib.ContentTypes.QueueMain)
 }
 
 // Get secondairy que, in case no que is active a empty que will be returned.
 //
 // Will return incorrect data if a third party application is controling playback.
-func (zp *ZonePlayer) GetQueSecond() (queInfo, error) {
-	return zp.BrowseQue(ContentTypes.QueueSecond)
+func (h *Helper) GetQueSecond() (queInfo, error) {
+	return h.BrowseQue(lib.ContentTypes.QueueSecond)
 }

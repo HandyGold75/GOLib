@@ -22,8 +22,49 @@ zp, err := Gonos.ScanZonePlayer("127.0.0.0/8") // Scan a network for Sonos devic
 ```
 
 After a ZonePlayer is successfully created the associated Sonos device can be controlled.
+This can be done using either the Sonos SOAP services (base implementation) or the helpers
 
-Below a few examples for basic control of a Sonos device:
+The available Sonos SOAP services are:
+
+- `zp.AlarmClock`
+- `zp.AudioIn`
+- `zp.AVTransport`
+- `zp.ConnectionManager`
+- `zp.ContentDirectory`
+- `zp.DeviceProperties`
+- `zp.GroupManagement`
+- `zp.GroupRenderingControl`
+- `zp.HTControl`
+- `zp.MusicServices`
+- `zp.QPlay`
+- `zp.Queue`
+- `zp.RenderingControl`
+- `zp.SystemProperties`
+- `zp.VirtualLineIn`
+- `zp.ZoneGroupTopology`
+
+Some examples for controlling a Sonos device using the SOAP services:
+
+```go
+zp.AlarmClock.
+zp.AudioIn.
+zp.AVTransport.
+zp.ConnectionManager.
+zp.ContentDirectory.
+zp.DeviceProperties.
+zp.GroupManagement.
+zp.GroupRenderingControl.
+zp.HTControl.
+zp.MusicServices.
+zp.QPlay.
+zp.Queue.
+zp.RenderingControl.
+zp.SystemProperties.
+zp.VirtualLineIn.
+zp.ZoneGroupTopology.
+```
+
+Some examples for controlling a Sonos device using the helpers:
 
 ```go
 err := zp.Play() // Play current track.
