@@ -26,42 +26,42 @@ This can be done using either the Sonos SOAP services (base implementation) or t
 
 The available Sonos SOAP services are:
 
-- `zp.AlarmClock`
-- `zp.AudioIn`
+- `zp.AlarmClock` (Not yet implemented)
+- `zp.AudioIn` (Not yet implemented)
 - `zp.AVTransport`
-- `zp.ConnectionManager`
+- `zp.ConnectionManager` (Not yet implemented)
 - `zp.ContentDirectory`
 - `zp.DeviceProperties`
-- `zp.GroupManagement`
-- `zp.GroupRenderingControl`
-- `zp.HTControl`
-- `zp.MusicServices`
-- `zp.QPlay`
-- `zp.Queue`
+- `zp.GroupManagement` (Not yet implemented)
+- `zp.GroupRenderingControl` (Not yet implemented)
+- `zp.HTControl` (Not yet implemented)
+- `zp.MusicServices` (Not yet implemented)
+- `zp.QPlay` (Not yet implemented)
+- `zp.Queue` (Not yet implemented)
 - `zp.RenderingControl`
-- `zp.SystemProperties`
-- `zp.VirtualLineIn`
-- `zp.ZoneGroupTopology`
+- `zp.SystemProperties` (Not yet implemented)
+- `zp.VirtualLineIn` (Not yet implemented)
+- `zp.ZoneGroupTopology` (Not yet implemented)
 
 Some examples for controlling a Sonos device using the SOAP services:
 
 ```go
-zp.AlarmClock.
-zp.AudioIn.
-zp.AVTransport.
-zp.ConnectionManager.
-zp.ContentDirectory.
-zp.DeviceProperties.
-zp.GroupManagement.
-zp.GroupRenderingControl.
-zp.HTControl.
-zp.MusicServices.
-zp.QPlay.
-zp.Queue.
-zp.RenderingControl.
-zp.SystemProperties.
-zp.VirtualLineIn.
-zp.ZoneGroupTopology.
+err := zp.AlarmClock
+err := zp.AudioIn
+err := zp.AVTransport.Play() // Play current track.
+err := zp.ConnectionManager
+queInfo, err := zp.ContentDirectory.Browse(Gonos.lib.ContentTypes.QueueMain, "BrowseDirectChildren", "dc:title,res,dc:creator,upnp:artist,upnp:album,upnp:albumArtURI", 0, 0, "") // Get info of the current main que.
+zoneAttributes, err := zp.DeviceProperties.GetZoneAttributes() // Get attributes of current zone.
+err := zp.GroupManagement
+err := zp.GroupRenderingControl
+err := zp.HTControl
+err := zp.MusicServices
+err := zp.QPlay
+err := zp.Queue
+err := zp.RenderingControl.SetVolume(10) // Set volume to 10.
+err := zp.SystemProperties
+err := zp.VirtualLineIn
+err := zp.ZoneGroupTopology
 ```
 
 Some examples for controlling a Sonos device using the helpers:
