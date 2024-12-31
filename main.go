@@ -13,13 +13,9 @@ func main() {
 	}
 	zp := zps[0]
 
-	out, err := zp.GetQue()
+	err = zp.AVTransport.Pause()
 	if err != nil {
 		fmt.Println(err)
 		return
-	}
-
-	for _, f := range out.Tracks {
-		fmt.Println(f.Title)
 	}
 }

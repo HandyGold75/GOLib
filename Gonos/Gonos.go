@@ -1,188 +1,196 @@
 package Gonos
 
 import (
-	"encoding/xml"
-	"errors"
-	"io"
+	"Gonos/AVTransport"
+	"Gonos/ContentDirectory"
+	"Gonos/DeviceProperties"
+	"Gonos/Helper"
+	"Gonos/RenderingControl"
+	"Gonos/lib"
 	"net"
-	"net/http"
-	"reflect"
 	"strings"
 	"sync"
 	"time"
 )
 
 type (
-	errSonos                      struct{ ErrUnexpectedResponse, ErrInvalidIPAdress, ErrNoZonePlayerFound, ErrInvalidEndpoint, ErrInvalidContentType, ErrInvalidPlayMode error }
-	albumArtistDisplayOptionTypes = struct{ WMP, ITunes, None string }
-	contentTypes                  = struct{ MusicLibrarys, Artist, AlbumArtist, Album, Genre, Composer, Tracks, Playlists, Share, SonosPlaylists, SonosFavorites, Radios, RadioStations, RadioShows, Queues, QueueMain, QueueSecond string }
-	playModes                     = struct{ Normal, RepeatAll, RepeatOne, ShuffleNorepeat, Shuffle, ShuffleRepeaOne string }
-	seekModes                     = struct{ Track, Absolute, Relative string }
-
 	ZonePlayer struct {
-		IpAddress net.IP
+		// Full url address packets will be send to.
+		URL string
 		// GetZoneInfo call is made to confirm if the requested ZonePlayer exists opon creation, might as well store the returned data.
-		ZoneInfo getZoneInfoResponse
-		// Static generics; not recomended to modify.
-		Static struct {
-			General struct {
-				QueNumber int
-			}
-			RenderingControl struct {
-				// Channel should be one of: `Master`, `LF` or `RF`
-				Channel string
-			}
-			DeviceProperties struct {
-				Source string
-			}
-			AVTransport struct {
-				// Play speed usually `1`, can be a fraction of 1 Allowed values: `1`
-				Speed    int
-				UpdateID int
-			}
-		}
+		ZoneInfo DeviceProperties.GetZoneInfoResponse
+
+		// Contains helper functions.
+		//
+		// Prefer functions present in zp.H over the functions in Sonos SOAP Services.
+		H Helper.Helper
+
+		// Sonos SOAP Service `AlarmClock`.
+		//
+		// Prefer functions present in zp.H over the functions in Sonos SOAP Services.
+		//
+		// Control the sonos alarms and times.
+		// AlarmClock AlarmClock.AlarmClock
+
+		// Sonos SOAP Service `AudioIn`.
+		//
+		// Prefer functions present in zp.H over the functions in Sonos SOAP Services.
+		//
+		// Control line in.
+		// AudioIn AudioIn.AudioIn
+
+		// Sonos SOAP Service `AVTransport`.
+		//
+		// Prefer functions present in zp.H over the functions in Sonos SOAP Services.
+		//
+		// Service that controls stuff related to transport (play/pause/next/special URLs).
+		AVTransport AVTransport.AVTransport
+
+		// Sonos SOAP Service `ConnectionManager`.
+		//
+		// Prefer functions present in zp.H over the functions in Sonos SOAP Services.
+		//
+		// Services related to connections and protocols.
+		// ConnectionManager ConnectionManager.ConnectionManager
+
+		// Sonos SOAP Service `ContentDirectory`.
+		//
+		// Prefer functions present in zp.H over the functions in Sonos SOAP Services.
+		//
+		// Browse for local content.
+		ContentDirectory ContentDirectory.ContentDirectory
+
+		// Sonos SOAP Service `DeviceProperties`.
+		//
+		// Prefer functions present in zp.H over the functions in Sonos SOAP Services.
+		//
+		// Modify device properties, like LED status and stereo pairs.
+		DeviceProperties DeviceProperties.DeviceProperties
+
+		// Sonos SOAP Service `GroupManagement`.
+		//
+		// Prefer functions present in zp.H over the functions in Sonos SOAP Services.
+		//
+		// Services related to groups.
+		// GroupManagement GroupManagement.GroupManagement
+
+		// Sonos SOAP Service `GroupRenderingControl`.
+		//
+		// Prefer functions present in zp.H over the functions in Sonos SOAP Services.
+		//
+		// Volume related controls for groups.
+		// GroupRenderingControl GroupRenderingControl.GroupRenderingControl
+
+		// Sonos SOAP Service `HTControl`.
+		//
+		// Prefer functions present in zp.H over the functions in Sonos SOAP Services.
+		//
+		// Service related to the TV remote control.
+		// HTControl HTControl.HTControl
+
+		// Sonos SOAP Service `MusicServices`.
+		//
+		// Prefer functions present in zp.H over the functions in Sonos SOAP Services.
+		//
+		// Access to external music services, like Spotify or Youtube Music.
+		// MusicServices MusicServices.MusicServices
+
+		// Sonos SOAP Service `QPlay`.
+		//
+		// Prefer functions present in zp.H over the functions in Sonos SOAP Services.
+		//
+		// Services related to Chinese Tencent Qplay service.
+		// QPlay QPlay.QPlay
+
+		// Sonos SOAP Service `Queue`.
+		//
+		// Prefer functions present in zp.H over the functions in Sonos SOAP Services.
+		//
+		// Modify and browse queues.
+		// Queue Queue.Queue
+
+		// Sonos SOAP Service `RenderingControl`.
+		//
+		// Prefer functions present in zp.H over the functions in Sonos SOAP Services.
+		//
+		// Volume related controls.
+		RenderingControl RenderingControl.RenderingControl
+
+		// Sonos SOAP Service `SystemProperties`.
+		//
+		// Prefer functions present in zp.H over the functions in Sonos SOAP Services.
+		//
+		// Manage system-wide settings, mainly account stuff.
+		// SystemProperties SystemProperties.SystemProperties
+
+		// Sonos SOAP Service `VirtualLineIn`.
+		//
+		// Prefer functions present in zp.H over the functions in Sonos SOAP Services.
+		// VirtualLineIn VirtualLineIn.VirtualLineIn
+
+		// Sonos SOAP Service `ZoneGroupTopology`.
+		//
+		// Prefer functions present in zp.H over the functions in Sonos SOAP Services.
+		//
+		// Zone config stuff, eg getting all the configured sonos zones.
+		// ZoneGroupTopology ZoneGroupTopology.ZoneGroupTopology
 	}
 )
-
-var ErrSonos = errSonos{
-	ErrUnexpectedResponse: errors.New("unexpected response"),
-	ErrInvalidIPAdress:    errors.New("unable to discover zone player"),
-	ErrNoZonePlayerFound:  errors.New("unable to find zone player"),
-	ErrInvalidEndpoint:    errors.New("invalid endpoint"),
-	ErrInvalidPlayMode:    errors.New("invalid play mode"),
-}
-
-var AlbumArtistDisplayOptionTypes = albumArtistDisplayOptionTypes{
-	WMP:    "WMP",
-	ITunes: "ITUNES",
-	None:   "NONE",
-}
-
-var ContentTypes = contentTypes{
-	MusicLibrarys:  "A:",
-	Artist:         "A:ARTIST",
-	AlbumArtist:    "A:ALBUMARTIST",
-	Album:          "A:ALBUM",
-	Genre:          "A:GENRE",
-	Composer:       "A:COMPOSER",
-	Tracks:         "A:TRACKS",
-	Playlists:      "A:PLAYLISTS",
-	Share:          "S:",
-	SonosPlaylists: "SQ:",
-	SonosFavorites: "FV:2",
-	Radios:         "R:0",
-	RadioStations:  "R:0/0",
-	RadioShows:     "R:0/1",
-	Queues:         "Q:",
-	QueueMain:      "Q:0",
-	QueueSecond:    "Q:1",
-}
-
-var SeekModes = seekModes{
-	Track:    "TRACK_NR",
-	Relative: "REL_TIME",
-	Absolute: "TIME_DELTA",
-}
-
-var PlayModes = playModes{
-	Normal:          "NORMAL",
-	RepeatAll:       "REPEAT_ALL",
-	RepeatOne:       "REPEAT_ONE",
-	ShuffleNorepeat: "SHUFFLE_NOREPEAT",
-	Shuffle:         "SHUFFLE",
-	ShuffleRepeaOne: "SHUFFLE_REPEAT_ONE",
-}
-
-var PlayModeMap = map[string][3]bool{
-	// "PlayMode": [2]bool{shuffle, repeat, repeatOne}
-	PlayModes.Normal:          {false, false, false},
-	PlayModes.RepeatAll:       {false, true, false},
-	PlayModes.RepeatOne:       {false, false, true},
-	PlayModes.ShuffleNorepeat: {true, false, false},
-	PlayModes.Shuffle:         {true, true, false},
-	PlayModes.ShuffleRepeaOne: {true, false, true},
-}
-
-var PlayModeMapReversed = func() map[[3]bool]string {
-	PMS := map[[3]bool]string{}
-	for k, v := range PlayModeMap {
-		PMS[v] = k
-	}
-	return PMS
-}()
-
-func unmarshalMetaData[T any](data string, v T) error {
-	data = strings.ReplaceAll(data, "&apos;", "'")
-	data = strings.ReplaceAll(data, "&quot;", "\"")
-	data = strings.ReplaceAll(data, "&gt;", ">")
-	data = strings.ReplaceAll(data, "&lt;", "<")
-	if reflect.TypeOf(v).Elem().Kind() == reflect.Slice {
-		vTmp := struct {
-			XMLName xml.Name `xml:"DIDL-Lite"`
-			Items   T        `xml:"item"`
-		}{Items: v}
-		if err := xml.Unmarshal([]byte(data), &vTmp); err != nil {
-			return err
-		}
-		return nil
-	}
-
-	data, err := extractTag(data, "DIDL-Lite")
-	if err != nil {
-		return err
-	}
-	if err := xml.Unmarshal([]byte(data), v); err != nil {
-		return err
-	}
-	return nil
-}
-
-func extractTag(data, tag string) (string, error) {
-	if start, end := strings.Index(data, "<"+tag), strings.LastIndex(data, "</"+tag+">"); start != -1 && end != -1 {
-		data = data[start+len(tag) : end]
-		if mid := strings.Index(data, ">"); mid != -1 {
-			return data[mid+1:], nil
-		}
-	}
-	return data, ErrSonos.ErrUnexpectedResponse
-}
-
-func boolTo10(b bool) string {
-	if b {
-		return "1"
-	}
-	return "0"
-}
-
-func boolToOnOff(b bool) string {
-	if b {
-		return "On"
-	}
-	return "Off"
-}
 
 // Create new ZonePlayer for controling a Sonos speaker.
 func NewZonePlayer(ipAddress string) (*ZonePlayer, error) {
 	ip := net.ParseIP(ipAddress)
 	if ip == nil {
-		return &ZonePlayer{}, ErrSonos.ErrInvalidIPAdress
+		return &ZonePlayer{}, lib.ErrSonos.ErrInvalidIPAdress
 	}
 
-	zp := &ZonePlayer{IpAddress: ip}
-	zp.Static.General.QueNumber = 0
-	zp.Static.RenderingControl.Channel = "Master"
-	zp.Static.DeviceProperties.Source = ""
-	zp.Static.AVTransport.Speed = 1
-	zp.Static.AVTransport.UpdateID = 0
+	zp := &ZonePlayer{URL: "http://" + ip.String() + ":1400"}
+	// zp.AlarmClock = AlarmClock.New(zp.SendAlarmClock)
+	// zp.AudioIn = AudioIn.New(zp.SendAudioIn)
+	zp.AVTransport = AVTransport.New(zp.SendAVTransport)
+	// zp.ConnectionManager = ConnectionManager.New(zp.SendConnectionManager)
+	zp.ContentDirectory = ContentDirectory.New(zp.SendContentDirectory)
+	zp.DeviceProperties = DeviceProperties.New(zp.SendDeviceProperties)
+	// zp.GroupManagement = GroupManagement.New(zp.SendGroupManagement)
+	// zp.GroupRenderingControl = GroupRenderingControl.New(zp.SendGroupRenderingControl)
+	// zp.HTControl = HTControl.New(zp.SendHTControl)
+	// zp.MusicServices = MusicServices.New(zp.SendMusicServices)
+	// zp.QPlay = QPlay.New(zp.SendQPlay)
+	// zp.Queue = Queue.New(zp.SendQueue)
+	zp.RenderingControl = RenderingControl.New(zp.SendRenderingControl)
+	// zp.SystemProperties = SystemProperties.New(zp.SendSystemProperties)
+	// zp.VirtualLineIn = VirtualLineIn.New(zp.SendVirtualLineIn)
+	// zp.ZoneGroupTopology = ZoneGroupTopology.New(zp.SendZoneGroupTopology)
 
-	info, err := zp.GetZoneInfo()
+	zp.H = Helper.New(
+		// &zp.AlarmClock,
+		// &zp.AudioIn,
+		&zp.AVTransport,
+		// &zp.ConnectionManager,
+		&zp.ContentDirectory,
+		&zp.DeviceProperties,
+		// &zp.GroupManagement,
+		// &zp.GroupRenderingControl,
+		// &zp.HTControl,
+		// &zp.MusicServices,
+		// &zp.QPlay,
+		// &zp.Queue,
+		&zp.RenderingControl,
+		// &zp.SystemProperties,
+		// &zp.VirtualLineIn,
+		// &zp.ZoneGroupTopology,
+	)
+
+	info, err := zp.DeviceProperties.GetZoneInfo()
 	if err != nil {
-		return &ZonePlayer{}, ErrSonos.ErrNoZonePlayerFound
+		return &ZonePlayer{}, lib.ErrSonos.ErrNoZonePlayerFound
 	}
 	zp.ZoneInfo = info
 	return zp, nil
 }
 
+// TODO: Test
+//
 // Create new ZonePlayer using discovery controling a Sonos speaker.
 //
 // `timout` of 1 second is recomended.
@@ -216,7 +224,7 @@ func DiscoverZonePlayer(timeout time.Duration) ([]*ZonePlayer, error) {
 	}
 
 	if len(zps) <= 0 {
-		return zps, ErrSonos.ErrNoZonePlayerFound
+		return zps, lib.ErrSonos.ErrNoZonePlayerFound
 	}
 	return zps, nil
 }
@@ -261,102 +269,71 @@ func ScanZonePlayer(cidr string, timeout time.Duration) ([]*ZonePlayer, error) {
 	wg.Wait()
 
 	if len(zps) <= 0 {
-		return zps, ErrSonos.ErrNoZonePlayerFound
+		return zps, lib.ErrSonos.ErrNoZonePlayerFound
 	}
 	return zps, nil
 }
 
 func (zp *ZonePlayer) SendAVTransport(action, body, targetTag string) (string, error) {
-	return zp.sendCommand("/MediaRenderer/AVTransport/Control", "AVTransport", action, "<InstanceID>0</InstanceID>"+body, targetTag)
+	return lib.SendAndVerify(zp.URL+"/MediaRenderer/AVTransport/Control", "AVTransport", action, "<InstanceID>0</InstanceID>"+body, targetTag)
 }
 
 func (zp *ZonePlayer) SendAlarmClock(action, body, targetTag string) (string, error) {
-	return zp.sendCommand("/AlarmClock/Control", "AlarmClock", action, body, targetTag)
+	return lib.SendAndVerify(zp.URL+"/AlarmClock/Control", "AlarmClock", action, body, targetTag)
 }
 
 func (zp *ZonePlayer) SendAudioIn(action, body, targetTag string) (string, error) {
-	return zp.sendCommand("/AudioIn/Control", "AudioIn", action, body, targetTag)
+	return lib.SendAndVerify(zp.URL+"/AudioIn/Control", "AudioIn", action, body, targetTag)
 }
 
 func (zp *ZonePlayer) SendConnectionManager(action, body, targetTag string) (string, error) {
-	return zp.sendCommand("/MediaRenderer/ConnectionManager/Control", "ConnectionManager", action, body, targetTag)
+	return lib.SendAndVerify(zp.URL+"/MediaRenderer/ConnectionManager/Control", "ConnectionManager", action, body, targetTag)
 }
 
 func (zp *ZonePlayer) SendContentDirectory(action, body, targetTag string) (string, error) {
-	return zp.sendCommand("/MediaServer/ContentDirectory/Control", "ContentDirectory", action, body, targetTag)
+	return lib.SendAndVerify(zp.URL+"/MediaServer/ContentDirectory/Control", "ContentDirectory", action, body, targetTag)
 }
 
 func (zp *ZonePlayer) SendDeviceProperties(action, body, targetTag string) (string, error) {
-	return zp.sendCommand("/DeviceProperties/Control", "DeviceProperties", action, body, targetTag)
+	return lib.SendAndVerify(zp.URL+"/DeviceProperties/Control", "DeviceProperties", action, body, targetTag)
 }
 
 func (zp *ZonePlayer) SendGroupManagement(action, body, targetTag string) (string, error) {
-	return zp.sendCommand("/GroupManagement/Control", "GroupManagement", action, body, targetTag)
+	return lib.SendAndVerify(zp.URL+"/GroupManagement/Control", "GroupManagement", action, body, targetTag)
 }
 
 func (zp *ZonePlayer) SendGroupRenderingControl(action, body, targetTag string) (string, error) {
-	return zp.sendCommand("/MediaRenderer/GroupRenderingControl/Control", "GroupRenderingControl", action, body, targetTag)
+	return lib.SendAndVerify(zp.URL+"/MediaRenderer/GroupRenderingControl/Control", "GroupRenderingControl", action, body, targetTag)
 }
 
 func (zp *ZonePlayer) SendHTControl(action, body, targetTag string) (string, error) {
-	return zp.sendCommand("/HTControl/Control", "HTControl", action, body, targetTag)
+	return lib.SendAndVerify(zp.URL+"/HTControl/Control", "HTControl", action, body, targetTag)
 }
 
 func (zp *ZonePlayer) SendMusicServices(action, body, targetTag string) (string, error) {
-	return zp.sendCommand("/MusicServices/Control", "MusicServices", action, body, targetTag)
+	return lib.SendAndVerify(zp.URL+"/MusicServices/Control", "MusicServices", action, body, targetTag)
 }
 
 func (zp *ZonePlayer) SendQPlay(action, body, targetTag string) (string, error) {
-	return zp.sendCommand("/QPlay/Control", "QPlay", action, body, targetTag)
+	return lib.SendAndVerify(zp.URL+"/QPlay/Control", "QPlay", action, body, targetTag)
 }
 
 func (zp *ZonePlayer) SendQueue(action, body, targetTag string) (string, error) {
-	return zp.sendCommand("/MediaRenderer/Queue/Control", "Queue", action, body, targetTag)
+	return lib.SendAndVerify(zp.URL+"/MediaRenderer/Queue/Control", "Queue", action, body, targetTag)
 }
 
 func (zp *ZonePlayer) SendRenderingControl(action, body, targetTag string) (string, error) {
-	return zp.sendCommand("/MediaRenderer/RenderingControl/Control", "RenderingControl", action, "<InstanceID>0</InstanceID>"+body, targetTag)
+	return lib.SendAndVerify(zp.URL+"/MediaRenderer/RenderingControl/Control", "RenderingControl", action, "<InstanceID>0</InstanceID>"+body, targetTag)
 }
 
 func (zp *ZonePlayer) SendSystemProperties(action, body, targetTag string) (string, error) {
-	return zp.sendCommand("/SystemProperties/Control", "SystemProperties", action, body, targetTag)
+	return lib.SendAndVerify(zp.URL+"/SystemProperties/Control", "SystemProperties", action, body, targetTag)
 }
 
 func (zp *ZonePlayer) SendVirtualLineIn(action, body, targetTag string) (string, error) {
-	return zp.sendCommand("/MediaRenderer/VirtualLineIn/Control", "VirtualLineIn", action, body, targetTag)
+	return lib.SendAndVerify(zp.URL+"/MediaRenderer/VirtualLineIn/Control", "VirtualLineIn", action, body, targetTag)
 }
 
 func (zp *ZonePlayer) SendZoneGroupTopology(action, body, targetTag string) (string, error) {
-	return zp.sendCommand("/ZoneGroupTopology/Control", "ZoneGroupTopology", action, body, targetTag)
-}
-
-func (zp *ZonePlayer) sendCommand(uri string, endpoint string, action string, body string, targetTag string) (string, error) {
-	req, err := http.NewRequest(
-		"POST",
-		"http://"+zp.IpAddress.String()+":1400"+uri,
-		strings.NewReader(`<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body><u:`+action+` xmlns:u="urn:schemas-upnp-org:service:`+endpoint+`:1">`+body+`</u:`+action+`></s:Body></s:Envelope>`),
-	)
-	if err != nil {
-		return "", err
-	}
-	req.Header.Add("Content-Type", "text/xml")
-	req.Header.Add("SOAPACTION", "urn:schemas-upnp-org:service:"+endpoint+":1#"+action)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	result, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-	resultStr := string(result[:])
-
-	if targetTag != "" {
-		return extractTag(resultStr, targetTag)
-	} else if resultStr != `<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body><u:`+action+`Response xmlns:u="urn:schemas-upnp-org:service:`+endpoint+`:1"></u:`+action+`Response></s:Body></s:Envelope>` {
-		return resultStr, ErrSonos.ErrUnexpectedResponse
-	}
-	return resultStr, nil
+	return lib.SendAndVerify(zp.URL+"/ZoneGroupTopology/Control", "ZoneGroupTopology", action, body, targetTag)
 }
