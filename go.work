@@ -5,4 +5,5 @@ use (
 	./logger
 	./pbar
 	./scheduler
+	./tui
 )
