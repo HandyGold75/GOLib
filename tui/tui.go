@@ -29,13 +29,12 @@ type (
 	optionTypes struct{ String, Int, Float, Bool optionType }
 	optionType  string
 
-	keybinds struct{ Up, Down, Select, Back, Exit, Numbers [][]byte }
+	keybinds struct{ Up, Down, Right, Left, Exit, Numbers, Confirm, Delete [][]byte }
 
 	MainMenu struct {
-		Menu     *Menu
-		current  *Menu
-		selected int
-		exit     chan error
+		Menu *Menu
+		cur  *Menu
+		exit chan error
 	}
 
 	Menu struct {
@@ -45,6 +44,8 @@ type (
 		SelectColor   color
 		SelectBGColor color
 		Align         align
+		Selected      int
+		Editing       bool
 		Back          *Menu
 		Menus         []*Menu
 		Actions       []*Action
@@ -62,6 +63,7 @@ type (
 		Color       color
 		AccentColor color
 		ValueColor  color
+		Allowed     string
 		Type        optionType
 		Value       string
 	}
@@ -136,19 +138,15 @@ var (
 	DefaultAlign = Aligns.Middle
 	DefaultType  = Types.String
 
-	// ESC: {27, 0, 0}, RETURN: {13, 0, 0}
-	// CTRL_C: {3, 0, 0}, CTRL_D: {4, 0, 0}, Q: {113, 0, 0}
-	// W: {119, 0, 0}, D: {100, 0, 0}, S: {115, 0, 0}, A: {97, 0, 0}
-	// K: {108, 0, 0}, L: {107, 0, 0}, J: {106, 0, 0}, H: {104, 0, 0}
-	// UP: {27, 91, 65}, RIGHT: {27, 91, 67}, DOWN: {27, 91, 66}, LEFT: {27, 91, 68}
-	// Zero: {48, 0, 0}, One: {49, 0, 0}, Two: {50, 0, 0}, Three: {51, 0, 0}, For: {52, 0, 0}, Five: {53, 0, 0}, Six: {54, 0, 0}, Seven: {55, 0, 0}, Eight: {56, 0, 0}, Nine: {57, 0, 0}
 	KeyBinds = keybinds{
-		Up:      [][]byte{{119, 0, 0}, {108, 0, 0}, {27, 91, 65}},                                                                                 // W, K, UP
+		Up:      [][]byte{{119, 0, 0}, {107, 0, 0}, {27, 91, 65}},                                                                                 // W, K, UP
 		Down:    [][]byte{{115, 0, 0}, {106, 0, 0}, {27, 91, 66}},                                                                                 // S, J, DOWN
-		Select:  [][]byte{{100, 0, 0}, {107, 0, 0}, {27, 91, 67}, {13, 0, 0}},                                                                     // D, L, RIGHT, RETURN
-		Back:    [][]byte{{97, 0, 0}, {104, 0, 0}, {27, 91, 68}},                                                                                  // A, H, LEFT
-		Exit:    [][]byte{{27, 0, 0}, {3, 0, 0}, {4, 0, 0}, {113, 0, 0}},                                                                          // ESC, CTRL_C, CTRL_D, Q
+		Right:   [][]byte{{100, 0, 0}, {108, 0, 0}, {27, 91, 67}, {13, 0, 0}},                                                                     // D, L, RIGHT, RETURN
+		Left:    [][]byte{{97, 0, 0}, {104, 0, 0}, {27, 91, 68}, {113, 0, 0}, {127, 0, 0}},                                                        // A, H, LEFT, Q, BACKSPACE
+		Exit:    [][]byte{{27, 0, 0}, {3, 0, 0}, {4, 0, 0}},                                                                                       // ESC, CTRL_C, CTRL_D,
 		Numbers: [][]byte{{48, 0, 0}, {49, 0, 0}, {50, 0, 0}, {51, 0, 0}, {52, 0, 0}, {53, 0, 0}, {54, 0, 0}, {55, 0, 0}, {56, 0, 0}, {57, 0, 0}}, // 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
+		Confirm: [][]byte{{13, 0, 0}},                                                                                                             // RETURN
+		Delete:  [][]byte{{127, 0, 0}, {27, 91, 51}},                                                                                              // BACKSPACE, DEL
 	}
 )
 
@@ -165,16 +163,16 @@ func NewMenu(title string) *MainMenu {
 		SelectColor:   DefaultSelectColor,
 		SelectBGColor: DefaultSelectBGColor,
 		Align:         DefaultAlign,
+		Selected:      0,
 		Back:          nil,
 		Menus:         []*Menu{},
 		Actions:       []*Action{},
 		Options:       []*Option{},
 	}
 	return &MainMenu{
-		Menu:     menu,
-		current:  menu,
-		selected: 0,
-		exit:     make(chan error),
+		Menu: menu,
+		cur:  menu,
+		exit: make(chan error),
 	}
 }
 
@@ -226,6 +224,7 @@ func (m *Menu) NewOption(name string, value string) *Option {
 		Color:       DefaultColor,
 		AccentColor: DefaultAccentColor,
 		ValueColor:  DefaultValueColor,
+		Allowed:     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
 		Type:        DefaultType,
 		Value:       value,
 	}
@@ -233,7 +232,40 @@ func (m *Menu) NewOption(name string, value string) *Option {
 	return option
 }
 
-func (m *Menu) Render(selected int) error {
+func (m *Menu) editOption(o *Option) error {
+	var e error
+	m.Editing = true
+	m.Render()
+
+	for {
+		in := make([]byte, 3)
+		if _, err := os.Stdin.Read(in); err != nil {
+			e = err
+			break
+		}
+
+		if slices.ContainsFunc(KeyBinds.Exit, func(v []byte) bool { return slices.Equal(v, in) }) || slices.ContainsFunc(KeyBinds.Confirm, func(v []byte) bool { return slices.Equal(v, in) }) {
+			break
+		} else if slices.ContainsFunc(KeyBinds.Delete, func(v []byte) bool { return slices.Equal(v, in) }) {
+			if len(o.Value) > 0 {
+				o.Value = o.Value[:len(o.Value)-1]
+				m.Render()
+				continue
+			}
+		}
+
+		if strings.ContainsAny(o.Allowed, string(in[:])) {
+			o.Value += string(bytes.Trim(in, "\x00")[:])
+			m.Render()
+		}
+	}
+
+	m.Editing = false
+	m.Render()
+	return e
+}
+
+func (m *Menu) Render() error {
 	x, _, err := term.GetSize(int(os.Stdin.Fd()))
 	if err != nil {
 		return err
@@ -256,7 +288,7 @@ func (m *Menu) Render(selected int) error {
 	if len(m.Menus) > 0 {
 		for _, menu := range m.Menus {
 			itemLen += 1
-			if itemLen == selected {
+			if itemLen == m.Selected {
 				lines = append(lines, slices.Concat(getCursorPos(len(menu.Title)+2, Aligns.Middle), m.SelectBGColor, m.SelectColor, []byte(menu.Title), Colors.Reset, m.AccentColor, []byte(" 🞂"), Colors.Reset))
 			} else {
 				lines = append(lines, slices.Concat(getCursorPos(len(menu.Title)+2, Aligns.Middle), menu.Color, []byte(menu.Title), m.AccentColor, []byte(" 🞂"), Colors.Reset))
@@ -268,7 +300,7 @@ func (m *Menu) Render(selected int) error {
 	if len(m.Actions) > 0 {
 		for _, action := range m.Actions {
 			itemLen += 1
-			if itemLen == selected {
+			if itemLen == m.Selected {
 				lines = append(lines, slices.Concat(getCursorPos(len(action.Name), Aligns.Middle), m.SelectBGColor, m.SelectColor, []byte(action.Name), Colors.Reset))
 			} else {
 				lines = append(lines, slices.Concat(getCursorPos(len(action.Name), Aligns.Middle), action.Color, []byte(action.Name), Colors.Reset))
@@ -280,8 +312,12 @@ func (m *Menu) Render(selected int) error {
 	if len(m.Options) > 0 {
 		for _, option := range m.Options {
 			itemLen += 1
-			if itemLen == selected {
-				lines = append(lines, slices.Concat(getCursorPos(len(option.Name)+3+len(option.Value), Aligns.Middle), m.SelectBGColor, m.SelectColor, []byte(option.Name), Colors.Reset, option.AccentColor, []byte(" ▷ "), option.ValueColor, []byte(option.Value), Colors.Reset))
+			if itemLen == m.Selected {
+				if m.Editing {
+					lines = append(lines, slices.Concat(getCursorPos(len(option.Name)+3+len(option.Value), Aligns.Middle), option.Color, []byte(option.Name), option.AccentColor, []byte(" ▷ "), m.SelectBGColor, m.SelectColor, []byte(option.Value), Colors.Reset))
+				} else {
+					lines = append(lines, slices.Concat(getCursorPos(len(option.Name)+3+len(option.Value), Aligns.Middle), m.SelectBGColor, m.SelectColor, []byte(option.Name), Colors.Reset, option.AccentColor, []byte(" ▷ "), option.ValueColor, []byte(option.Value), Colors.Reset))
+				}
 			} else {
 				lines = append(lines, slices.Concat(getCursorPos(len(option.Name)+3+len(option.Value), Aligns.Middle), option.Color, []byte(option.Name), option.AccentColor, []byte(" ▷ "), option.ValueColor, []byte(option.Value), Colors.Reset))
 			}
@@ -294,7 +330,7 @@ func (m *Menu) Render(selected int) error {
 		backText = "Back"
 	}
 	itemLen += 1
-	if itemLen == selected {
+	if itemLen == m.Selected {
 		lines = append(lines, slices.Concat(getCursorPos(len(backText)+2, Aligns.Middle), m.AccentColor, []byte("◀ "), m.SelectBGColor, m.SelectColor, []byte(backText), Colors.Reset))
 	} else {
 		lines = append(lines, slices.Concat(getCursorPos(len(backText)+2, Aligns.Middle), m.AccentColor, []byte("◀ "), m.Color, []byte(backText), Colors.Reset))
@@ -306,39 +342,13 @@ func (m *Menu) Render(selected int) error {
 	return nil
 }
 
-func (m *Menu) Select(index int) (*Menu, *Action, *Option) {
-	itemLen := -1
-	for _, menu := range m.Menus {
-		itemLen += 1
-		if itemLen == index {
-			return menu, nil, nil
-		}
-	}
-
-	for _, action := range m.Actions {
-		itemLen += 1
-		if itemLen == index {
-			return nil, action, nil
-		}
-	}
-
-	for _, option := range m.Options {
-		itemLen += 1
-		if itemLen == index {
-			return nil, nil, option
-		}
-	}
-
-	return nil, nil, nil
-}
-
 // Restores term to `state` after the tui stops.
 func (mm *MainMenu) Start(state *term.State) {
 	go func() {
 		defer term.Restore(int(os.Stdin.Fd()), state)
 
 		var e error
-		mm.current.Render(mm.selected)
+		mm.cur.Render()
 
 		for {
 			in := make([]byte, 3)
@@ -350,60 +360,69 @@ func (mm *MainMenu) Start(state *term.State) {
 			if slices.ContainsFunc(KeyBinds.Exit, func(v []byte) bool { return slices.Equal(v, in) }) {
 				break
 			} else if slices.ContainsFunc(KeyBinds.Up, func(v []byte) bool { return slices.Equal(v, in) }) {
-				mm.selected = max(mm.selected-1, 0)
-				mm.current.Render(mm.selected)
+				mm.cur.Selected = max(mm.cur.Selected-1, 0)
+				mm.cur.Render()
 				continue
 			} else if slices.ContainsFunc(KeyBinds.Down, func(v []byte) bool { return slices.Equal(v, in) }) {
-				mm.selected = min(mm.selected+1, len(mm.current.Menus)+len(mm.current.Actions)+len(mm.current.Options))
-				mm.current.Render(mm.selected)
+				mm.cur.Selected = min(mm.cur.Selected+1, len(mm.cur.Menus)+len(mm.cur.Actions)+len(mm.cur.Options))
+				mm.cur.Render()
 				continue
 
-			} else if slices.ContainsFunc(KeyBinds.Select, func(v []byte) bool { return slices.Equal(v, in) }) {
-				menuTmp, actionTmp, optionTmp := mm.current.Select(mm.selected)
-				if menuTmp != nil {
-					mm.current = menuTmp
-				} else if actionTmp != nil {
-					actionTmp.Callback()
+			} else if slices.ContainsFunc(KeyBinds.Right, func(v []byte) bool { return slices.Equal(v, in) }) {
+				if s := mm.cur.Selected; s < len(mm.cur.Menus) && s >= 0 {
+					mm.cur = mm.cur.Menus[s]
+				} else if s := mm.cur.Selected - len(mm.cur.Menus); s < len(mm.cur.Actions) && s >= 0 {
+					mm.cur.Actions[s].Callback()
 					break
-				} else if optionTmp != nil {
-				} else {
-					if mm.current.Back == nil {
+				} else if s := mm.cur.Selected - len(mm.cur.Menus) - len(mm.cur.Actions); s < len(mm.cur.Options) && s >= 0 {
+					if err := mm.cur.editOption(mm.cur.Options[s]); err != nil {
+						e = err
 						break
 					}
-					mm.current = mm.current.Back
+				} else {
+					if mm.cur.Back == nil {
+						break
+					}
+					mm.cur = mm.cur.Back
 				}
 
-				mm.current.Render(mm.selected)
+				mm.cur.Render()
 				continue
 
-			} else if slices.ContainsFunc(KeyBinds.Back, func(v []byte) bool { return slices.Equal(v, in) }) {
-				if mm.current.Back == nil {
+			} else if slices.ContainsFunc(KeyBinds.Left, func(v []byte) bool { return slices.Equal(v, in) }) {
+				if mm.cur.Back == nil {
 					break
 				}
-				mm.current = mm.current.Back
-				mm.current.Render(mm.selected)
+				mm.cur = mm.cur.Back
+				mm.cur.Render()
 				continue
 
 			} else if i := slices.IndexFunc(KeyBinds.Numbers, func(v []byte) bool { return slices.Equal(v, in) }); i != -1 {
 				if i == 0 {
-					if mm.current.Back == nil {
+					if mm.cur.Back == nil {
 						break
 					}
-					mm.current = mm.current.Back
-					mm.current.Render(mm.selected)
+					mm.cur = mm.cur.Back
+					mm.cur.Render()
 					continue
 				}
 
-				menuTmp, actionTmp, optionTmp := mm.current.Select(i - 1)
-				if menuTmp != nil {
-					mm.current = menuTmp
-				} else if actionTmp != nil {
-					actionTmp.Callback()
+				if s := i - 1; s < len(mm.cur.Menus) && s >= 0 {
+					mm.cur.Selected = s
+					mm.cur = mm.cur.Menus[s]
+				} else if s := i - 1 - len(mm.cur.Menus); s < len(mm.cur.Actions) && s >= 0 {
+					mm.cur.Selected = s
+					mm.cur.Actions[s].Callback()
 					break
-				} else if optionTmp != nil {
+				} else if s := i - 1 - len(mm.cur.Menus) - len(mm.cur.Actions); s < len(mm.cur.Options) && s >= 0 {
+					mm.cur.Selected = s
+					if err := mm.cur.editOption(mm.cur.Options[s]); err != nil {
+						e = err
+						break
+					}
 				}
 
-				mm.current.Render(mm.selected)
+				mm.cur.Render()
 				continue
 			}
 		}
