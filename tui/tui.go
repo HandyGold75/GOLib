@@ -232,6 +232,16 @@ func (m *Menu) NewOption(name string, value string) *Option {
 	return option
 }
 
+func (m *Menu) up() {
+	m.Selected = max(m.Selected-1, 0)
+	m.Render()
+}
+
+func (m *Menu) down() {
+	m.Selected = min(m.Selected+1, len(m.Menus)+len(m.Actions)+len(m.Options))
+	m.Render()
+}
+
 func (m *Menu) editOption(o *Option) error {
 	var e error
 	m.Editing = true
@@ -342,6 +352,24 @@ func (m *Menu) Render() error {
 	return nil
 }
 
+func (m *Menu) right() (error, *Menu) {
+	if s := m.Selected; s < len(m.Menus) && s >= 0 {
+		return nil, m.Menus[s]
+	} else if s := m.Selected - len(m.Menus); s < len(m.Actions) && s >= 0 {
+		m.Actions[s].Callback()
+		return errors.New("exit"), nil
+	} else if s := m.Selected - len(m.Menus) - len(m.Actions); s < len(m.Options) && s >= 0 {
+		if err := m.editOption(m.Options[s]); err != nil {
+			return err, nil
+		}
+		return nil, m
+	}
+	if m.Back == nil {
+		return errors.New("exit"), nil
+	}
+	return nil, m.Back
+}
+
 // Restores term to `state` after the tui stops.
 func (mm *MainMenu) Start(state *term.State) {
 	go func() {
@@ -360,32 +388,20 @@ func (mm *MainMenu) Start(state *term.State) {
 			if slices.ContainsFunc(KeyBinds.Exit, func(v []byte) bool { return slices.Equal(v, in) }) {
 				break
 			} else if slices.ContainsFunc(KeyBinds.Up, func(v []byte) bool { return slices.Equal(v, in) }) {
-				mm.cur.Selected = max(mm.cur.Selected-1, 0)
-				mm.cur.Render()
+				mm.cur.up()
 				continue
+
 			} else if slices.ContainsFunc(KeyBinds.Down, func(v []byte) bool { return slices.Equal(v, in) }) {
-				mm.cur.Selected = min(mm.cur.Selected+1, len(mm.cur.Menus)+len(mm.cur.Actions)+len(mm.cur.Options))
-				mm.cur.Render()
+				mm.cur.down()
 				continue
 
 			} else if slices.ContainsFunc(KeyBinds.Right, func(v []byte) bool { return slices.Equal(v, in) }) {
-				if s := mm.cur.Selected; s < len(mm.cur.Menus) && s >= 0 {
-					mm.cur = mm.cur.Menus[s]
-				} else if s := mm.cur.Selected - len(mm.cur.Menus); s < len(mm.cur.Actions) && s >= 0 {
-					mm.cur.Actions[s].Callback()
+				err, menu := mm.cur.right()
+				if err != nil {
+					e = err
 					break
-				} else if s := mm.cur.Selected - len(mm.cur.Menus) - len(mm.cur.Actions); s < len(mm.cur.Options) && s >= 0 {
-					if err := mm.cur.editOption(mm.cur.Options[s]); err != nil {
-						e = err
-						break
-					}
-				} else {
-					if mm.cur.Back == nil {
-						break
-					}
-					mm.cur = mm.cur.Back
 				}
-
+				mm.cur = menu
 				mm.cur.Render()
 				continue
 
@@ -398,30 +414,16 @@ func (mm *MainMenu) Start(state *term.State) {
 				continue
 
 			} else if i := slices.IndexFunc(KeyBinds.Numbers, func(v []byte) bool { return slices.Equal(v, in) }); i != -1 {
-				if i == 0 {
-					if mm.cur.Back == nil {
-						break
-					}
-					mm.cur = mm.cur.Back
-					mm.cur.Render()
+				if i > len(mm.cur.Menus)+len(mm.cur.Actions)+len(mm.cur.Options) {
 					continue
 				}
-
-				if s := i - 1; s < len(mm.cur.Menus) && s >= 0 {
-					mm.cur.Selected = s
-					mm.cur = mm.cur.Menus[s]
-				} else if s := i - 1 - len(mm.cur.Menus); s < len(mm.cur.Actions) && s >= 0 {
-					mm.cur.Selected = s
-					mm.cur.Actions[s].Callback()
+				mm.cur.Selected = i - 1
+				err, menu := mm.cur.right()
+				if err != nil {
+					e = err
 					break
-				} else if s := i - 1 - len(mm.cur.Menus) - len(mm.cur.Actions); s < len(mm.cur.Options) && s >= 0 {
-					mm.cur.Selected = s
-					if err := mm.cur.editOption(mm.cur.Options[s]); err != nil {
-						e = err
-						break
-					}
 				}
-
+				mm.cur = menu
 				mm.cur.Render()
 				continue
 			}
@@ -436,12 +438,13 @@ func (mm *MainMenu) Start(state *term.State) {
 	}()
 }
 
-func (mm *MainMenu) Join() {
+func (mm *MainMenu) Join() error {
 	err := <-mm.exit
-	if err != nil {
-		fmt.Println(err)
-	}
 	close(mm.exit)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func main() {
@@ -467,7 +470,9 @@ func main() {
 	menu.Menu.NewAction("evenmore Action", func() {})
 
 	menu.Start(oldState)
-	menu.Join()
+	if err := menu.Join(); err != nil {
+		fmt.Println(err)
+	}
 
 	if _, err := trm.Write([]byte("\033[2J\033[0;0H")); err != nil {
 		panic(err)
