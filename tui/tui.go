@@ -1,4 +1,4 @@
-package main
+package tui
 
 import (
 	"bytes"
@@ -32,12 +32,12 @@ type (
 	keybinds struct{ Up, Down, Right, Left, Exit, Numbers, Confirm, Delete [][]byte }
 
 	MainMenu struct {
-		Menu *Menu
-		cur  *Menu
+		Menu *menu
+		cur  *menu
 		exit chan error
 	}
 
-	Menu struct {
+	menu struct {
 		Title         string
 		Color         color
 		AccentColor   color
@@ -46,8 +46,8 @@ type (
 		Align         align
 		Selected      int
 		Editing       bool
-		Back          *Menu
-		Menus         []*Menu
+		Back          *menu
+		Menus         []*menu
 		Actions       []*Action
 		Options       []*Option
 	}
@@ -156,7 +156,7 @@ var (
 //
 // Allowed colors are `tui.Colors.*`.
 func NewMenu(title string) *MainMenu {
-	menu := &Menu{
+	mn := &menu{
 		Title:         title,
 		Color:         DefaultColor,
 		AccentColor:   DefaultAccentColor,
@@ -165,13 +165,13 @@ func NewMenu(title string) *MainMenu {
 		Align:         DefaultAlign,
 		Selected:      0,
 		Back:          nil,
-		Menus:         []*Menu{},
+		Menus:         []*menu{},
 		Actions:       []*Action{},
 		Options:       []*Option{},
 	}
 	return &MainMenu{
-		Menu: menu,
-		cur:  menu,
+		Menu: mn,
+		cur:  mn,
 		exit: make(chan error),
 	}
 }
@@ -179,8 +179,8 @@ func NewMenu(title string) *MainMenu {
 // Add a new menu to m.Menus
 //
 // Returns a pointer to the new menu.
-func (m *Menu) NewMenu(title string) *Menu {
-	menu := &Menu{
+func (m *menu) NewMenu(title string) *menu {
+	mn := &menu{
 		Title:         title,
 		Color:         DefaultColor,
 		AccentColor:   DefaultAccentColor,
@@ -188,12 +188,12 @@ func (m *Menu) NewMenu(title string) *Menu {
 		SelectBGColor: DefaultSelectBGColor,
 		Align:         DefaultAlign,
 		Back:          m,
-		Menus:         []*Menu{},
+		Menus:         []*menu{},
 		Actions:       []*Action{},
 		Options:       []*Option{},
 	}
-	m.Menus = append(m.Menus, menu)
-	return menu
+	m.Menus = append(m.Menus, mn)
+	return mn
 }
 
 // Add a new action to m.Actions
@@ -201,7 +201,7 @@ func (m *Menu) NewMenu(title string) *Menu {
 // Returns a pointer to the new action.
 //
 // To set default colors set `tui.DefaultColor` before creating options.
-func (m *Menu) NewAction(name string, callback func()) *Action {
+func (m *menu) NewAction(name string, callback func()) *Action {
 	action := &Action{
 		Name:     name,
 		Color:    DefaultColor,
@@ -218,7 +218,7 @@ func (m *Menu) NewAction(name string, callback func()) *Action {
 // To set default colors set `tui.DefaultColor`, `tui.DefaultAccentColor`, `tui.DefaultValueColor` before creating options.
 //
 // To set default types set `tui.DefaultType` before creating options.
-func (m *Menu) NewOption(name string, value string) *Option {
+func (m *menu) NewOption(name string, value string) *Option {
 	option := &Option{
 		Name:        name,
 		Color:       DefaultColor,
@@ -232,17 +232,17 @@ func (m *Menu) NewOption(name string, value string) *Option {
 	return option
 }
 
-func (m *Menu) up() {
+func (m *menu) up() {
 	m.Selected = max(m.Selected-1, 0)
 	m.Render()
 }
 
-func (m *Menu) down() {
+func (m *menu) down() {
 	m.Selected = min(m.Selected+1, len(m.Menus)+len(m.Actions)+len(m.Options))
 	m.Render()
 }
 
-func (m *Menu) editOption(o *Option) error {
+func (m *menu) editOption(o *Option) error {
 	var e error
 	m.Editing = true
 	m.Render()
@@ -275,7 +275,7 @@ func (m *Menu) editOption(o *Option) error {
 	return e
 }
 
-func (m *Menu) Render() error {
+func (m *menu) Render() error {
 	x, _, err := term.GetSize(int(os.Stdin.Fd()))
 	if err != nil {
 		return err
@@ -296,12 +296,12 @@ func (m *Menu) Render() error {
 	lines = append(lines, slices.Concat(m.AccentColor, []byte(strings.Repeat("─", x)), Colors.Reset))
 
 	if len(m.Menus) > 0 {
-		for _, menu := range m.Menus {
+		for _, mn := range m.Menus {
 			itemLen += 1
 			if itemLen == m.Selected {
-				lines = append(lines, slices.Concat(getCursorPos(len(menu.Title)+2, Aligns.Middle), m.SelectBGColor, m.SelectColor, []byte(menu.Title), Colors.Reset, m.AccentColor, []byte(" 🞂"), Colors.Reset))
+				lines = append(lines, slices.Concat(getCursorPos(len(mn.Title)+2, Aligns.Middle), m.SelectBGColor, m.SelectColor, []byte(mn.Title), Colors.Reset, m.AccentColor, []byte(" 🞂"), Colors.Reset))
 			} else {
-				lines = append(lines, slices.Concat(getCursorPos(len(menu.Title)+2, Aligns.Middle), menu.Color, []byte(menu.Title), m.AccentColor, []byte(" 🞂"), Colors.Reset))
+				lines = append(lines, slices.Concat(getCursorPos(len(mn.Title)+2, Aligns.Middle), mn.Color, []byte(mn.Title), m.AccentColor, []byte(" 🞂"), Colors.Reset))
 			}
 		}
 		lines = append(lines, []byte{})
@@ -352,7 +352,7 @@ func (m *Menu) Render() error {
 	return nil
 }
 
-func (m *Menu) right() (error, *Menu) {
+func (m *menu) right() (error, *menu) {
 	if s := m.Selected; s < len(m.Menus) && s >= 0 {
 		return nil, m.Menus[s]
 	} else if s := m.Selected - len(m.Menus); s < len(m.Actions) && s >= 0 {
@@ -396,12 +396,12 @@ func (mm *MainMenu) Start(state *term.State) {
 				continue
 
 			} else if slices.ContainsFunc(KeyBinds.Right, func(v []byte) bool { return slices.Equal(v, in) }) {
-				err, menu := mm.cur.right()
+				err, mn := mm.cur.right()
 				if err != nil {
 					e = err
 					break
 				}
-				mm.cur = menu
+				mm.cur = mn
 				mm.cur.Render()
 				continue
 
@@ -418,12 +418,12 @@ func (mm *MainMenu) Start(state *term.State) {
 					continue
 				}
 				mm.cur.Selected = i - 1
-				err, menu := mm.cur.right()
+				err, mn := mm.cur.right()
 				if err != nil {
 					e = err
 					break
 				}
-				mm.cur = menu
+				mm.cur = mn
 				mm.cur.Render()
 				continue
 			}
@@ -458,19 +458,19 @@ func main() {
 	}
 	defer func() { term.Restore(int(os.Stdin.Fd()), oldState) }()
 
-	menu := NewMenu("Some Title")
+	mn := NewMenu("Some Title")
 
-	menu1 := menu.Menu.NewMenu("A Sub menu")
-	menu1.NewOption("some Option 1", "value")
-	menu2 := menu.Menu.NewMenu("Antoher Sub menu")
-	menu2.NewOption("some Option 2", "value")
-	menu.Menu.NewOption("some Option", "value")
-	menu.Menu.NewOption("somemore Option", "value")
-	menu.Menu.NewAction("a Action", func() {})
-	menu.Menu.NewAction("evenmore Action", func() {})
+	mn1 := mn.Menu.NewMenu("A Sub menu")
+	mn1.NewOption("some Option 1", "value")
+	mn2 := mn.Menu.NewMenu("Antoher Sub menu")
+	mn2.NewOption("some Option 2", "value")
+	mn.Menu.NewOption("some Option", "value")
+	mn.Menu.NewOption("somemore Option", "value")
+	mn.Menu.NewAction("a Action", func() {})
+	mn.Menu.NewAction("evenmore Action", func() {})
 
-	menu.Start(oldState)
-	if err := menu.Join(); err != nil {
+	mn.Start(oldState)
+	if err := mn.Join(); err != nil {
 		fmt.Println(err)
 	}
 
