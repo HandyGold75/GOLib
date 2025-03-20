@@ -1,4 +1,4 @@
-package tui
+package main
 
 import (
 	"bytes"
@@ -48,17 +48,17 @@ type (
 		Editing       bool
 		Back          *menu
 		Menus         []*menu
-		Actions       []*Action
-		Options       []*Option
+		Actions       []*action
+		Options       []*option
 	}
 
-	Action struct {
+	action struct {
 		Name     string
 		Color    color
 		Callback func()
 	}
 
-	Option struct {
+	option struct {
 		Name        string
 		Color       color
 		AccentColor color
@@ -166,8 +166,8 @@ func NewMenu(title string) *MainMenu {
 		Selected:      0,
 		Back:          nil,
 		Menus:         []*menu{},
-		Actions:       []*Action{},
-		Options:       []*Option{},
+		Actions:       []*action{},
+		Options:       []*option{},
 	}
 	return &MainMenu{
 		Menu: mn,
@@ -189,8 +189,8 @@ func (m *menu) NewMenu(title string) *menu {
 		Align:         DefaultAlign,
 		Back:          m,
 		Menus:         []*menu{},
-		Actions:       []*Action{},
-		Options:       []*Option{},
+		Actions:       []*action{},
+		Options:       []*option{},
 	}
 	m.Menus = append(m.Menus, mn)
 	return mn
@@ -201,14 +201,14 @@ func (m *menu) NewMenu(title string) *menu {
 // Returns a pointer to the new action.
 //
 // To set default colors set `tui.DefaultColor` before creating options.
-func (m *menu) NewAction(name string, callback func()) *Action {
-	action := &Action{
+func (m *menu) NewAction(name string, callback func()) *action {
+	act := &action{
 		Name:     name,
 		Color:    DefaultColor,
 		Callback: callback,
 	}
-	m.Actions = append(m.Actions, action)
-	return action
+	m.Actions = append(m.Actions, act)
+	return act
 }
 
 // Add a new option to m.Options
@@ -218,8 +218,8 @@ func (m *menu) NewAction(name string, callback func()) *Action {
 // To set default colors set `tui.DefaultColor`, `tui.DefaultAccentColor`, `tui.DefaultValueColor` before creating options.
 //
 // To set default types set `tui.DefaultType` before creating options.
-func (m *menu) NewOption(name string, value string) *Option {
-	option := &Option{
+func (m *menu) NewOption(name string, value string) *option {
+	opt := &option{
 		Name:        name,
 		Color:       DefaultColor,
 		AccentColor: DefaultAccentColor,
@@ -228,24 +228,42 @@ func (m *menu) NewOption(name string, value string) *Option {
 		Type:        DefaultType,
 		Value:       value,
 	}
-	m.Options = append(m.Options, option)
-	return option
+	m.Options = append(m.Options, opt)
+	return opt
 }
 
 func (m *menu) up() {
 	m.Selected = max(m.Selected-1, 0)
-	m.Render()
+	_ = m.Render()
 }
 
 func (m *menu) down() {
 	m.Selected = min(m.Selected+1, len(m.Menus)+len(m.Actions)+len(m.Options))
-	m.Render()
+	_ = m.Render()
 }
 
-func (m *menu) editOption(o *Option) error {
+func (m *menu) right() (error, *menu) {
+	if s := m.Selected; s < len(m.Menus) && s >= 0 {
+		return nil, m.Menus[s]
+	} else if s := m.Selected - len(m.Menus); s < len(m.Actions) && s >= 0 {
+		m.Actions[s].Callback()
+		return errors.New("exit"), nil
+	} else if s := m.Selected - len(m.Menus) - len(m.Actions); s < len(m.Options) && s >= 0 {
+		if err := m.editOption(m.Options[s]); err != nil {
+			return err, nil
+		}
+		return nil, m
+	}
+	if m.Back == nil {
+		return errors.New("exit"), nil
+	}
+	return nil, m.Back
+}
+
+func (m *menu) editOption(o *option) error {
 	var e error
 	m.Editing = true
-	m.Render()
+	_ = m.Render()
 
 	for {
 		in := make([]byte, 3)
@@ -259,19 +277,19 @@ func (m *menu) editOption(o *Option) error {
 		} else if slices.ContainsFunc(KeyBinds.Delete, func(v []byte) bool { return slices.Equal(v, in) }) {
 			if len(o.Value) > 0 {
 				o.Value = o.Value[:len(o.Value)-1]
-				m.Render()
+				_ = m.Render()
 				continue
 			}
 		}
 
 		if strings.ContainsAny(o.Allowed, string(in[:])) {
 			o.Value += string(bytes.Trim(in, "\x00")[:])
-			m.Render()
+			_ = m.Render()
 		}
 	}
 
 	m.Editing = false
-	m.Render()
+	_ = m.Render()
 	return e
 }
 
@@ -308,28 +326,28 @@ func (m *menu) Render() error {
 	}
 
 	if len(m.Actions) > 0 {
-		for _, action := range m.Actions {
+		for _, act := range m.Actions {
 			itemLen += 1
 			if itemLen == m.Selected {
-				lines = append(lines, slices.Concat(getCursorPos(len(action.Name), Aligns.Middle), m.SelectBGColor, m.SelectColor, []byte(action.Name), Colors.Reset))
+				lines = append(lines, slices.Concat(getCursorPos(len(act.Name), Aligns.Middle), m.SelectBGColor, m.SelectColor, []byte(act.Name), Colors.Reset))
 			} else {
-				lines = append(lines, slices.Concat(getCursorPos(len(action.Name), Aligns.Middle), action.Color, []byte(action.Name), Colors.Reset))
+				lines = append(lines, slices.Concat(getCursorPos(len(act.Name), Aligns.Middle), act.Color, []byte(act.Name), Colors.Reset))
 			}
 		}
 		lines = append(lines, []byte{})
 	}
 
 	if len(m.Options) > 0 {
-		for _, option := range m.Options {
+		for _, opt := range m.Options {
 			itemLen += 1
 			if itemLen == m.Selected {
 				if m.Editing {
-					lines = append(lines, slices.Concat(getCursorPos(len(option.Name)+3+len(option.Value), Aligns.Middle), option.Color, []byte(option.Name), option.AccentColor, []byte(" ▷ "), m.SelectBGColor, m.SelectColor, []byte(option.Value), Colors.Reset))
+					lines = append(lines, slices.Concat(getCursorPos(len(opt.Name)+3+len(opt.Value), Aligns.Middle), opt.Color, []byte(opt.Name), opt.AccentColor, []byte(" ▷ "), m.SelectBGColor, m.SelectColor, []byte(opt.Value), Colors.Reset))
 				} else {
-					lines = append(lines, slices.Concat(getCursorPos(len(option.Name)+3+len(option.Value), Aligns.Middle), m.SelectBGColor, m.SelectColor, []byte(option.Name), Colors.Reset, option.AccentColor, []byte(" ▷ "), option.ValueColor, []byte(option.Value), Colors.Reset))
+					lines = append(lines, slices.Concat(getCursorPos(len(opt.Name)+3+len(opt.Value), Aligns.Middle), m.SelectBGColor, m.SelectColor, []byte(opt.Name), Colors.Reset, opt.AccentColor, []byte(" ▷ "), opt.ValueColor, []byte(opt.Value), Colors.Reset))
 				}
 			} else {
-				lines = append(lines, slices.Concat(getCursorPos(len(option.Name)+3+len(option.Value), Aligns.Middle), option.Color, []byte(option.Name), option.AccentColor, []byte(" ▷ "), option.ValueColor, []byte(option.Value), Colors.Reset))
+				lines = append(lines, slices.Concat(getCursorPos(len(opt.Name)+3+len(opt.Value), Aligns.Middle), opt.Color, []byte(opt.Name), opt.AccentColor, []byte(" ▷ "), opt.ValueColor, []byte(opt.Value), Colors.Reset))
 			}
 		}
 		lines = append(lines, []byte{})
@@ -352,31 +370,13 @@ func (m *menu) Render() error {
 	return nil
 }
 
-func (m *menu) right() (error, *menu) {
-	if s := m.Selected; s < len(m.Menus) && s >= 0 {
-		return nil, m.Menus[s]
-	} else if s := m.Selected - len(m.Menus); s < len(m.Actions) && s >= 0 {
-		m.Actions[s].Callback()
-		return errors.New("exit"), nil
-	} else if s := m.Selected - len(m.Menus) - len(m.Actions); s < len(m.Options) && s >= 0 {
-		if err := m.editOption(m.Options[s]); err != nil {
-			return err, nil
-		}
-		return nil, m
-	}
-	if m.Back == nil {
-		return errors.New("exit"), nil
-	}
-	return nil, m.Back
-}
-
 // Restores term to `state` after the tui stops.
 func (mm *MainMenu) Start(state *term.State) {
 	go func() {
-		defer term.Restore(int(os.Stdin.Fd()), state)
+		defer func() { _ = term.Restore(int(os.Stdin.Fd()), state) }()
 
 		var e error
-		mm.cur.Render()
+		_ = mm.cur.Render()
 
 		for {
 			in := make([]byte, 3)
@@ -402,7 +402,7 @@ func (mm *MainMenu) Start(state *term.State) {
 					break
 				}
 				mm.cur = mn
-				mm.cur.Render()
+				_ = mm.cur.Render()
 				continue
 
 			} else if slices.ContainsFunc(KeyBinds.Left, func(v []byte) bool { return slices.Equal(v, in) }) {
@@ -410,7 +410,7 @@ func (mm *MainMenu) Start(state *term.State) {
 					break
 				}
 				mm.cur = mm.cur.Back
-				mm.cur.Render()
+				_ = mm.cur.Render()
 				continue
 
 			} else if i := slices.IndexFunc(KeyBinds.Numbers, func(v []byte) bool { return slices.Equal(v, in) }); i != -1 {
@@ -424,7 +424,7 @@ func (mm *MainMenu) Start(state *term.State) {
 					break
 				}
 				mm.cur = mn
-				mm.cur.Render()
+				_ = mm.cur.Render()
 				continue
 			}
 		}
@@ -434,7 +434,6 @@ func (mm *MainMenu) Start(state *term.State) {
 			return
 		}
 		mm.exit <- e
-		return
 	}()
 }
 
@@ -456,7 +455,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer func() { term.Restore(int(os.Stdin.Fd()), oldState) }()
+	defer func() { _ = term.Restore(int(os.Stdin.Fd()), oldState) }()
 
 	mn := NewMenu("Some Title")
 
