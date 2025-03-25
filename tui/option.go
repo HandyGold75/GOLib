@@ -9,14 +9,16 @@ import (
 )
 
 type option struct {
-	Name        string
-	Color       color
-	AccentColor color
-	ValueColor  color
-	Allowed     string
-	value       string
-	editing     bool
-	renderer    *func() error
+	Name          string
+	Color         color
+	AccentColor   color
+	ValueColor    color
+	SelectColor   color
+	SelectBGColor color
+	Allowed       string
+	value         string
+	editing       bool
+	renderer      *func() error
 }
 
 // Add a new option to `m.Options`.
@@ -26,16 +28,18 @@ type option struct {
 //
 // Returns a pointer to the new option.
 //
-// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.ValueColor` before creating options.
+// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.SelectBGColor`, `tui.Defaults.ValueColor` before creating menus.
 func (m *menu) NewOption(name string, value string) *option {
 	opt := &option{
-		Name:        name,
-		Color:       Defaults.Color,
-		AccentColor: Defaults.AccentColor,
-		ValueColor:  Defaults.ValueColor,
-		Allowed:     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
-		value:       value,
-		renderer:    m.renderer,
+		Name:          name,
+		Color:         Defaults.Color,
+		AccentColor:   Defaults.AccentColor,
+		SelectColor:   Defaults.SelectColor,
+		SelectBGColor: Defaults.SelectBGColor,
+		ValueColor:    Defaults.ValueColor,
+		Allowed:       "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+		value:         value,
+		renderer:      m.renderer,
 	}
 	m.Options = append(m.Options, opt)
 	return opt
