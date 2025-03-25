@@ -1,13 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"os"
 	"slices"
-	"strconv"
-	"strings"
-
-	"golang.org/x/term"
 )
 
 type menu struct {
@@ -18,13 +13,12 @@ type menu struct {
 	SelectBGColor color
 	Align         align
 	selected      int
-	editing       bool
 	back          *menu
-	trm           *term.Terminal
+	renderer      *func() error
 	Menus         []*menu
 	Actions       []*action
-	Options       []*option
 	Lists         []*list
+	Options       []*option
 }
 
 // Add a new menu to `m.Menus`.
@@ -43,24 +37,14 @@ func (m *menu) NewMenu(title string) *menu {
 		SelectBGColor: Defaults.SelectBGColor,
 		Align:         Defaults.Align,
 		back:          m,
-		trm:           m.trm,
+		renderer:      m.renderer,
 		Menus:         []*menu{},
 		Actions:       []*action{},
-		Options:       []*option{},
 		Lists:         []*list{},
+		Options:       []*option{},
 	}
 	m.Menus = append(m.Menus, mn)
 	return mn
-}
-
-func (m *menu) up() {
-	m.selected = max(m.selected-1, 0)
-	_ = m.Render()
-}
-
-func (m *menu) down() {
-	m.selected = min(m.selected+1, len(m.Menus)+len(m.Actions)+len(m.Options))
-	_ = m.Render()
 }
 
 func (m *menu) right() (error, *menu) {
@@ -69,11 +53,12 @@ func (m *menu) right() (error, *menu) {
 	} else if s := m.selected - len(m.Menus); s < len(m.Actions) && s >= 0 {
 		m.Actions[s].callback()
 		return Errors.Exit, nil
-	} else if s := m.selected - len(m.Menus) - len(m.Actions); s < len(m.Options) && s >= 0 {
-		if err := m.editOption(m.Options[s]); err != nil {
-			return err, nil
-		}
-		return nil, m
+	} else if s := m.selected - len(m.Menus) - len(m.Actions); s < len(m.Lists) && s >= 0 {
+		err := m.Lists[s].edit()
+		return err, m
+	} else if s := m.selected - len(m.Menus) - len(m.Actions) - len(m.Lists); s < len(m.Options) && s >= 0 {
+		err := m.Options[s].edit()
+		return err, m
 	}
 	if m.back == nil {
 		return Errors.Exit, nil
@@ -81,11 +66,8 @@ func (m *menu) right() (error, *menu) {
 	return nil, m.back
 }
 
-func (m *menu) editOption(o *option) error {
+func (m *menu) edit() (*menu, error) {
 	var e error
-	m.editing = true
-	_ = m.Render()
-
 	for {
 		in := make([]byte, 3)
 		if _, err := os.Stdin.Read(in); err != nil {
@@ -93,117 +75,44 @@ func (m *menu) editOption(o *option) error {
 			break
 		}
 
-		if slices.ContainsFunc(KeyBinds.Exit, func(v []byte) bool { return slices.Equal(v, in) }) || slices.ContainsFunc(KeyBinds.Confirm, func(v []byte) bool { return slices.Equal(v, in) }) {
+		if slices.ContainsFunc(KeyBinds.Exit, func(v []byte) bool { return slices.Equal(v, in) }) {
 			break
-		} else if slices.ContainsFunc(KeyBinds.Delete, func(v []byte) bool { return slices.Equal(v, in) }) {
-			if len(o.value) > 0 {
-				o.value = o.value[:len(o.value)-1]
-				_ = m.Render()
+		} else if slices.ContainsFunc(KeyBinds.Up, func(v []byte) bool { return slices.Equal(v, in) }) {
+			m.selected = max(m.selected-1, 0)
+			_ = (*m.renderer)()
+			continue
+
+		} else if slices.ContainsFunc(KeyBinds.Down, func(v []byte) bool { return slices.Equal(v, in) }) {
+			m.selected = min(m.selected+1, len(m.Menus)+len(m.Actions)+len(m.Lists)+len(m.Options))
+			_ = (*m.renderer)()
+			continue
+
+		} else if slices.ContainsFunc(KeyBinds.Right, func(v []byte) bool { return slices.Equal(v, in) }) {
+			err, mn := m.right()
+			if err != nil {
+				e = err
+				break
+			}
+			return mn, nil
+
+		} else if slices.ContainsFunc(KeyBinds.Left, func(v []byte) bool { return slices.Equal(v, in) }) {
+			if m.back == nil {
+				break
+			}
+			return m.back, nil
+
+		} else if i := slices.IndexFunc(KeyBinds.Numbers, func(v []byte) bool { return slices.Equal(v, in) }); i != -1 {
+			if i > len(m.Menus)+len(m.Actions)+len(m.Options) {
 				continue
 			}
-		}
-
-		if strings.ContainsAny(o.Allowed, string(in[:])) {
-			o.value += string(bytes.Trim(in, "\x00")[:])
-			_ = m.Render()
-		}
-	}
-
-	m.editing = false
-	_ = m.Render()
-	return e
-}
-
-// Render the current menu.
-func (m *menu) Render() error {
-	x, _, err := term.GetSize(int(os.Stdin.Fd()))
-	if err != nil {
-		return err
-	}
-	getCursorPos := func(textWidth int, alignment align) []byte {
-		if alignment == Aligns.Left {
-			return []byte{}
-		} else if alignment == Aligns.Middle {
-			return []byte("\033[" + strconv.Itoa(int((float64(x)/2)-(float64(textWidth)/2))) + "C")
-		} else if alignment == Aligns.Right {
-			return []byte("\033[" + strconv.Itoa(x-textWidth) + "C")
-		}
-		return []byte{}
-	}
-
-	itemLen := -1
-	lines := append([][]byte{}, slices.Concat(getCursorPos(len(m.Title), Aligns.Middle), m.Color, []byte(m.Title), Colors.Reset))
-	lines = append(lines, slices.Concat(m.AccentColor, []byte(strings.Repeat("─", x)), Colors.Reset))
-
-	if len(m.Menus) > 0 {
-		for _, mn := range m.Menus {
-			itemLen += 1
-			if itemLen == m.selected {
-				lines = append(lines, slices.Concat(getCursorPos(len(mn.Title)+2, Aligns.Middle), m.SelectBGColor, m.SelectColor, []byte(mn.Title), Colors.Reset, m.AccentColor, []byte(" 🞂"), Colors.Reset))
-			} else {
-				lines = append(lines, slices.Concat(getCursorPos(len(mn.Title)+2, Aligns.Middle), mn.Color, []byte(mn.Title), m.AccentColor, []byte(" 🞂"), Colors.Reset))
+			m.selected = i - 1
+			err, mn := m.right()
+			if err != nil {
+				e = err
+				break
 			}
+			return mn, nil
 		}
-		lines = append(lines, []byte{})
 	}
-
-	if len(m.Actions) > 0 {
-		for _, act := range m.Actions {
-			itemLen += 1
-			if itemLen == m.selected {
-				lines = append(lines, slices.Concat(getCursorPos(len(act.Name), Aligns.Middle), m.SelectBGColor, m.SelectColor, []byte(act.Name), Colors.Reset))
-			} else {
-				lines = append(lines, slices.Concat(getCursorPos(len(act.Name), Aligns.Middle), act.Color, []byte(act.Name), Colors.Reset))
-			}
-		}
-		lines = append(lines, []byte{})
-	}
-
-	if len(m.Options) > 0 {
-		for _, opt := range m.Options {
-			itemLen += 1
-			if itemLen == m.selected {
-				if m.editing {
-					lines = append(lines, slices.Concat(getCursorPos(len(opt.Name)+3+len(opt.value), Aligns.Middle), opt.Color, []byte(opt.Name), opt.AccentColor, []byte(" ▷ "), m.SelectBGColor, m.SelectColor, []byte(opt.value), Colors.Reset))
-				} else {
-					lines = append(lines, slices.Concat(getCursorPos(len(opt.Name)+3+len(opt.value), Aligns.Middle), m.SelectBGColor, m.SelectColor, []byte(opt.Name), Colors.Reset, opt.AccentColor, []byte(" ▷ "), opt.ValueColor, []byte(opt.value), Colors.Reset))
-				}
-			} else {
-				lines = append(lines, slices.Concat(getCursorPos(len(opt.Name)+3+len(opt.value), Aligns.Middle), opt.Color, []byte(opt.Name), opt.AccentColor, []byte(" ▷ "), opt.ValueColor, []byte(opt.value), Colors.Reset))
-			}
-		}
-		lines = append(lines, []byte{})
-	}
-
-	if len(m.Lists) > 0 {
-		for _, lst := range m.Lists {
-			itemLen += 1
-			if itemLen == m.selected {
-				if m.editing {
-					lines = append(lines, slices.Concat(getCursorPos(len(lst.Name)+3+len(lst.value), Aligns.Middle), lst.Color, []byte(lst.Name), lst.AccentColor, []byte(" ▷ "), m.SelectBGColor, m.SelectColor, []byte(lst.value), Colors.Reset))
-				} else {
-					lines = append(lines, slices.Concat(getCursorPos(len(lst.Name)+3+len(lst.value), Aligns.Middle), m.SelectBGColor, m.SelectColor, []byte(lst.Name), Colors.Reset, lst.AccentColor, []byte(" ▷ "), lst.ValueColor, []byte(lst.value), Colors.Reset))
-				}
-			} else {
-				lines = append(lines, slices.Concat(getCursorPos(len(lst.Name)+3+len(lst.value), Aligns.Middle), lst.Color, []byte(lst.Name), lst.AccentColor, []byte(" ▷ "), lst.ValueColor, []byte(lst.value), Colors.Reset))
-			}
-		}
-		lines = append(lines, []byte{})
-	}
-
-	backText := "Exit"
-	if m.back != nil {
-		backText = "Back"
-	}
-	itemLen += 1
-	if itemLen == m.selected {
-		lines = append(lines, slices.Concat(getCursorPos(len(backText)+2, Aligns.Middle), m.AccentColor, []byte("◀ "), m.SelectBGColor, m.SelectColor, []byte(backText), Colors.Reset))
-	} else {
-		lines = append(lines, slices.Concat(getCursorPos(len(backText)+2, Aligns.Middle), m.AccentColor, []byte("◀ "), m.Color, []byte(backText), Colors.Reset))
-	}
-
-	if _, err := m.trm.Write(slices.Concat([]byte("\033[2J\033[0;0H"), bytes.Join(lines, []byte("\r\n")))); err != nil {
-		return err
-	}
-	return nil
+	return nil, e
 }

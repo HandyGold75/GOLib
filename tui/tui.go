@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"slices"
+	"strconv"
+	"strings"
 
 	"golang.org/x/term"
 )
@@ -35,6 +38,7 @@ type (
 	MainMenu struct {
 		Menu   *menu
 		cur    *menu
+		trm    *term.Terminal
 		exit   chan error
 		active bool
 	}
@@ -135,21 +139,121 @@ func NewMenu(title string) (*MainMenu, error) {
 		Align:         Defaults.Align,
 		selected:      0,
 		back:          nil,
+		renderer:      nil,
+		Menus:         []*menu{},
+		Actions:       []*action{},
+		Options:       []*option{},
+		Lists:         []*list{},
+	}
+	main := &MainMenu{
+		Menu: mn,
+		cur:  mn,
 		trm: term.NewTerminal(struct {
 			io.Reader
 			io.Writer
 		}{os.Stdin, os.Stdout}, ""),
-		Menus:   []*menu{},
-		Actions: []*action{},
-		Options: []*option{},
-		Lists:   []*list{},
-	}
-	return &MainMenu{
-		Menu:   mn,
-		cur:    mn,
 		exit:   make(chan error),
 		active: false,
-	}, nil
+	}
+
+	r := func() error { return main.Render() }
+	mn.renderer = &r
+	return main, nil
+}
+
+// Render the current menu.
+func (mm *MainMenu) Render() error {
+	x, _, err := term.GetSize(int(os.Stdin.Fd()))
+	if err != nil {
+		return err
+	}
+	getCursorPos := func(textWidth int, alignment align) []byte {
+		if alignment == Aligns.Left {
+			return []byte{}
+		} else if alignment == Aligns.Middle {
+			return []byte("\033[" + strconv.Itoa(int((float64(x)/2)-(float64(textWidth)/2))) + "C")
+		} else if alignment == Aligns.Right {
+			return []byte("\033[" + strconv.Itoa(x-textWidth) + "C")
+		}
+		return []byte{}
+	}
+
+	itemLen := -1
+	lines := append([][]byte{}, slices.Concat(getCursorPos(len(mm.cur.Title), Aligns.Middle), mm.cur.Color, []byte(mm.cur.Title), Colors.Reset))
+	lines = append(lines, slices.Concat(mm.cur.AccentColor, []byte(strings.Repeat("─", x)), Colors.Reset))
+
+	if len(mm.cur.Menus) > 0 {
+		for _, mn := range mm.cur.Menus {
+			itemLen += 1
+			if itemLen == mm.cur.selected {
+				lines = append(lines, slices.Concat(getCursorPos(len(mn.Title)+2, Aligns.Middle), mm.cur.SelectBGColor, mm.cur.SelectColor, []byte(mn.Title), Colors.Reset, mm.cur.AccentColor, []byte(" 🞂"), Colors.Reset))
+			} else {
+				lines = append(lines, slices.Concat(getCursorPos(len(mn.Title)+2, Aligns.Middle), mn.Color, []byte(mn.Title), mm.cur.AccentColor, []byte(" 🞂"), Colors.Reset))
+			}
+		}
+		lines = append(lines, []byte{})
+	}
+
+	if len(mm.cur.Actions) > 0 {
+		for _, act := range mm.cur.Actions {
+			itemLen += 1
+			if itemLen == mm.cur.selected {
+				lines = append(lines, slices.Concat(getCursorPos(len(act.Name), Aligns.Middle), mm.cur.SelectBGColor, mm.cur.SelectColor, []byte(act.Name), Colors.Reset))
+			} else {
+				lines = append(lines, slices.Concat(getCursorPos(len(act.Name), Aligns.Middle), act.Color, []byte(act.Name), Colors.Reset))
+			}
+		}
+		lines = append(lines, []byte{})
+	}
+
+	if len(mm.cur.Lists) > 0 {
+		for _, lst := range mm.cur.Lists {
+			itemLen += 1
+			v := lst.Get()
+			if itemLen == mm.cur.selected {
+				if lst.editing {
+					lines = append(lines, slices.Concat(getCursorPos(len(lst.Name)+3+len(v), Aligns.Middle), lst.Color, []byte(lst.Name), lst.AccentColor, []byte(" ▷ "), mm.cur.SelectBGColor, mm.cur.SelectColor, []byte(v), Colors.Reset))
+				} else {
+					lines = append(lines, slices.Concat(getCursorPos(len(lst.Name)+3+len(v), Aligns.Middle), mm.cur.SelectBGColor, mm.cur.SelectColor, []byte(lst.Name), Colors.Reset, lst.AccentColor, []byte(" ▷ "), lst.ValueColor, []byte(v), Colors.Reset))
+				}
+			} else {
+				lines = append(lines, slices.Concat(getCursorPos(len(lst.Name)+3+len(v), Aligns.Middle), lst.Color, []byte(lst.Name), lst.AccentColor, []byte(" ▷ "), lst.ValueColor, []byte(v), Colors.Reset))
+			}
+		}
+		lines = append(lines, []byte{})
+	}
+
+	if len(mm.cur.Options) > 0 {
+		for _, opt := range mm.cur.Options {
+			itemLen += 1
+			if itemLen == mm.cur.selected {
+				if opt.editing {
+					lines = append(lines, slices.Concat(getCursorPos(len(opt.Name)+3+len(opt.value), Aligns.Middle), opt.Color, []byte(opt.Name), opt.AccentColor, []byte(" ▷ "), mm.cur.SelectBGColor, mm.cur.SelectColor, []byte(opt.value), Colors.Reset))
+				} else {
+					lines = append(lines, slices.Concat(getCursorPos(len(opt.Name)+3+len(opt.value), Aligns.Middle), mm.cur.SelectBGColor, mm.cur.SelectColor, []byte(opt.Name), Colors.Reset, opt.AccentColor, []byte(" ▷ "), opt.ValueColor, []byte(opt.value), Colors.Reset))
+				}
+			} else {
+				lines = append(lines, slices.Concat(getCursorPos(len(opt.Name)+3+len(opt.value), Aligns.Middle), opt.Color, []byte(opt.Name), opt.AccentColor, []byte(" ▷ "), opt.ValueColor, []byte(opt.value), Colors.Reset))
+			}
+		}
+		lines = append(lines, []byte{})
+	}
+
+	backText := "Exit"
+	if mm.cur.back != nil {
+		backText = "Back"
+	}
+	itemLen += 1
+	if itemLen == mm.cur.selected {
+		lines = append(lines, slices.Concat(getCursorPos(len(backText)+2, Aligns.Middle), mm.cur.AccentColor, []byte("◀ "), mm.cur.SelectBGColor, mm.cur.SelectColor, []byte(backText), Colors.Reset))
+	} else {
+		lines = append(lines, slices.Concat(getCursorPos(len(backText)+2, Aligns.Middle), mm.cur.AccentColor, []byte("◀ "), mm.cur.Color, []byte(backText), Colors.Reset))
+	}
+
+	if _, err := mm.trm.Write(slices.Concat([]byte("\033[2J\033[0;0H"), bytes.Join(lines, []byte("\r\n")))); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Start tui, this will render and handle user input in a goroutine.
@@ -178,66 +282,25 @@ func (mm *MainMenu) Start(state *term.State) error {
 	go func() {
 		defer func() { _ = term.Restore(int(os.Stdin.Fd()), state) }()
 
-		var e error
-		_ = mm.cur.Render()
-
+		_ = mm.Render()
 		for {
-			in := make([]byte, 3)
-			if _, err := os.Stdin.Read(in); err != nil {
-				e = err
+			mn, err := mm.cur.edit()
+			if err != nil {
+				if err == Errors.Exit {
+					err = nil
+				}
+				mm.exit <- err
+				close(mm.exit)
+				return
+			}
+			if mn == nil {
 				break
 			}
-
-			if slices.ContainsFunc(KeyBinds.Exit, func(v []byte) bool { return slices.Equal(v, in) }) {
-				break
-			} else if slices.ContainsFunc(KeyBinds.Up, func(v []byte) bool { return slices.Equal(v, in) }) {
-				mm.cur.up()
-				continue
-
-			} else if slices.ContainsFunc(KeyBinds.Down, func(v []byte) bool { return slices.Equal(v, in) }) {
-				mm.cur.down()
-				continue
-
-			} else if slices.ContainsFunc(KeyBinds.Right, func(v []byte) bool { return slices.Equal(v, in) }) {
-				err, mn := mm.cur.right()
-				if err != nil {
-					e = err
-					break
-				}
-				mm.cur = mn
-				_ = mm.cur.Render()
-				continue
-
-			} else if slices.ContainsFunc(KeyBinds.Left, func(v []byte) bool { return slices.Equal(v, in) }) {
-				if mm.cur.back == nil {
-					break
-				}
-				mm.cur = mm.cur.back
-				_ = mm.cur.Render()
-				continue
-
-			} else if i := slices.IndexFunc(KeyBinds.Numbers, func(v []byte) bool { return slices.Equal(v, in) }); i != -1 {
-				if i > len(mm.cur.Menus)+len(mm.cur.Actions)+len(mm.cur.Options) {
-					continue
-				}
-				mm.cur.selected = i - 1
-				err, mn := mm.cur.right()
-				if err != nil {
-					e = err
-					break
-				}
-				mm.cur = mn
-				_ = mm.cur.Render()
-				continue
-			}
+			mm.cur = mn
+			_ = mm.Render()
 		}
 
-		if e != nil {
-			if e == Errors.Exit {
-				e = nil
-			}
-			mm.exit <- e
-		} else if _, err := mm.cur.trm.Write([]byte("\033[2J\033[0;0H")); err != nil {
+		if _, err := mm.trm.Write([]byte("\033[2J\033[0;0H")); err != nil {
 			mm.exit <- err
 		}
 		close(mm.exit)
@@ -280,6 +343,7 @@ func main() {
 	mn1.NewOption("some Option 1", "val")
 	mn2 := mn.Menu.NewMenu("Antoher Sub menu")
 	mn2.NewOption("some Option 2", "val")
+	mn.Menu.NewList("some List")
 	mn.Menu.NewOption("some Option", "val")
 	mn.Menu.NewOption("somemore Option", "val")
 	mn.Menu.NewAction("a Action", func() {})
@@ -295,7 +359,7 @@ func main() {
 		return
 	}
 
-	if _, err := mn.cur.trm.Write([]byte("\033[2J\033[0;0H")); err != nil {
+	if _, err := mn.trm.Write([]byte("\033[2J\033[0;0H")); err != nil {
 		panic(err)
 	}
 }

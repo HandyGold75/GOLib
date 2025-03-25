@@ -1,6 +1,12 @@
 package main
 
-import "strconv"
+import (
+	"bytes"
+	"os"
+	"slices"
+	"strconv"
+	"strings"
+)
 
 type option struct {
 	Name        string
@@ -9,6 +15,8 @@ type option struct {
 	ValueColor  color
 	Allowed     string
 	value       string
+	editing     bool
+	renderer    *func() error
 }
 
 // Add a new option to `m.Options`.
@@ -27,6 +35,7 @@ func (m *menu) NewOption(name string, value string) *option {
 		ValueColor:  Defaults.ValueColor,
 		Allowed:     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
 		value:       value,
+		renderer:    m.renderer,
 	}
 	m.Options = append(m.Options, opt)
 	return opt
@@ -40,3 +49,36 @@ func (o *option) GetInt() (int, error) { return strconv.Atoi(o.value) }
 
 // Get the value as a float.
 func (o *option) GetFloat() (float64, error) { return strconv.ParseFloat(o.value, 64) }
+
+func (o *option) edit() error {
+	var e error
+	o.editing = true
+	_ = (*o.renderer)()
+
+	for {
+		in := make([]byte, 3)
+		if _, err := os.Stdin.Read(in); err != nil {
+			e = err
+			break
+		}
+
+		if slices.ContainsFunc(KeyBinds.Exit, func(v []byte) bool { return slices.Equal(v, in) }) || slices.ContainsFunc(KeyBinds.Confirm, func(v []byte) bool { return slices.Equal(v, in) }) {
+			break
+		} else if slices.ContainsFunc(KeyBinds.Delete, func(v []byte) bool { return slices.Equal(v, in) }) {
+			if len(o.value) > 0 {
+				o.value = o.value[:len(o.value)-1]
+				_ = (*o.renderer)()
+				continue
+			}
+		}
+
+		if strings.ContainsAny(o.Allowed, string(in[:])) {
+			o.value += string(bytes.Trim(in, "\x00")[:])
+			_ = (*o.renderer)()
+		}
+	}
+
+	o.editing = false
+	_ = (*o.renderer)()
+	return e
+}
