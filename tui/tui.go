@@ -36,11 +36,12 @@ type (
 	keybinds struct{ Up, Down, Right, Left, Exit, Numbers, Confirm, Delete [][]byte }
 
 	MainMenu struct {
-		Menu   *menu
-		cur    *menu
-		trm    *term.Terminal
-		exit   chan error
-		active bool
+		Menu     *menu
+		cur      *menu
+		trm      *term.Terminal
+		renderer *func() error
+		exit     chan error
+		active   bool
 	}
 )
 
@@ -98,11 +99,11 @@ var (
 	}
 
 	Defaults = defaults{
-		Color:         Colors.Red,
-		AccentColor:   Colors.Black,
-		ValueColor:    Colors.BrightWhite,
+		Color:         Colors.White,
+		AccentColor:   Colors.Yellow,
+		ValueColor:    Colors.Blue,
 		SelectColor:   Colors.Black,
-		SelectBGColor: Colors.BGWhite,
+		SelectBGColor: Colors.BGYellow,
 		Align:         Aligns.Middle,
 	}
 
@@ -152,17 +153,66 @@ func NewMenu(title string) (*MainMenu, error) {
 			io.Reader
 			io.Writer
 		}{os.Stdin, os.Stdout}, ""),
-		exit:   make(chan error),
-		active: false,
+		renderer: nil,
+		exit:     make(chan error),
+		active:   false,
 	}
 
-	r := func() error { return main.Render() }
+	r := func() error { return Render(main) }
+	main.renderer = &r
 	mn.renderer = &r
+
 	return main, nil
 }
 
-// Render the current menu.
-func (mm *MainMenu) Render() error {
+// Get a new main menu with a custom renderer.
+//
+// Only 1 main menu should be active (started) at a time.
+//
+// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.SelectBGColor` before creating menus.
+//
+// To set default alignment set `tui.Defaults.Align` before creating menus.
+func NewMenuWithRenderer(title string, renderer func(*MainMenu) error) (*MainMenu, error) {
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		return nil, Errors.NotATerm
+	}
+
+	mn := &menu{
+		Title:         title,
+		Color:         Defaults.Color,
+		AccentColor:   Defaults.AccentColor,
+		SelectColor:   Defaults.SelectColor,
+		SelectBGColor: Defaults.SelectBGColor,
+		Align:         Defaults.Align,
+		selected:      0,
+		back:          nil,
+		renderer:      nil,
+		Menus:         []*menu{},
+		Actions:       []*action{},
+		Options:       []*option{},
+		Lists:         []*list{},
+	}
+	main := &MainMenu{
+		Menu: mn,
+		cur:  mn,
+		trm: term.NewTerminal(struct {
+			io.Reader
+			io.Writer
+		}{os.Stdin, os.Stdout}, ""),
+		renderer: nil,
+		exit:     make(chan error),
+		active:   false,
+	}
+
+	r := func() error { return renderer(main) }
+	main.renderer = &r
+	mn.renderer = &r
+
+	return main, nil
+}
+
+// Basic renderer for redering the current menu.
+func Render(mm *MainMenu) error {
 	x, _, err := term.GetSize(int(os.Stdin.Fd()))
 	if err != nil {
 		return err
@@ -186,9 +236,9 @@ func (mm *MainMenu) Render() error {
 		for _, mn := range mm.cur.Menus {
 			itemLen += 1
 			if itemLen == mm.cur.selected {
-				lines = append(lines, slices.Concat(getCursorPos(len(mn.Title)+2, Aligns.Middle), mm.cur.SelectBGColor, mm.cur.SelectColor, []byte(mn.Title), Colors.Reset, mm.cur.AccentColor, []byte(" 🞂"), Colors.Reset))
+				lines = append(lines, slices.Concat(getCursorPos(len(mn.Title)+2, Aligns.Middle), mn.SelectBGColor, mn.SelectColor, []byte(mn.Title), Colors.Reset, mn.AccentColor, []byte(" 🞂"), Colors.Reset))
 			} else {
-				lines = append(lines, slices.Concat(getCursorPos(len(mn.Title)+2, Aligns.Middle), mn.Color, []byte(mn.Title), mm.cur.AccentColor, []byte(" 🞂"), Colors.Reset))
+				lines = append(lines, slices.Concat(getCursorPos(len(mn.Title)+2, Aligns.Middle), mn.Color, []byte(mn.Title), mn.AccentColor, []byte(" 🞂"), Colors.Reset))
 			}
 		}
 		lines = append(lines, []byte{})
@@ -198,7 +248,7 @@ func (mm *MainMenu) Render() error {
 		for _, act := range mm.cur.Actions {
 			itemLen += 1
 			if itemLen == mm.cur.selected {
-				lines = append(lines, slices.Concat(getCursorPos(len(act.Name), Aligns.Middle), mm.cur.SelectBGColor, mm.cur.SelectColor, []byte(act.Name), Colors.Reset))
+				lines = append(lines, slices.Concat(getCursorPos(len(act.Name), Aligns.Middle), act.SelectBGColor, act.SelectColor, []byte(act.Name), Colors.Reset))
 			} else {
 				lines = append(lines, slices.Concat(getCursorPos(len(act.Name), Aligns.Middle), act.Color, []byte(act.Name), Colors.Reset))
 			}
@@ -212,9 +262,9 @@ func (mm *MainMenu) Render() error {
 			v := lst.Get()
 			if itemLen == mm.cur.selected {
 				if lst.editing {
-					lines = append(lines, slices.Concat(getCursorPos(len(lst.Name)+3+len(v), Aligns.Middle), lst.Color, []byte(lst.Name), lst.AccentColor, []byte(" ▷ "), mm.cur.SelectBGColor, mm.cur.SelectColor, []byte(v), Colors.Reset))
+					lines = append(lines, slices.Concat(getCursorPos(len(lst.Name)+3+len(v), Aligns.Middle), lst.Color, []byte(lst.Name), lst.AccentColor, []byte(" ▷ "), lst.SelectBGColor, lst.SelectColor, []byte(v), Colors.Reset))
 				} else {
-					lines = append(lines, slices.Concat(getCursorPos(len(lst.Name)+3+len(v), Aligns.Middle), mm.cur.SelectBGColor, mm.cur.SelectColor, []byte(lst.Name), Colors.Reset, lst.AccentColor, []byte(" ▷ "), lst.ValueColor, []byte(v), Colors.Reset))
+					lines = append(lines, slices.Concat(getCursorPos(len(lst.Name)+3+len(v), Aligns.Middle), lst.SelectBGColor, lst.SelectColor, []byte(lst.Name), Colors.Reset, lst.AccentColor, []byte(" ▷ "), lst.ValueColor, []byte(v), Colors.Reset))
 				}
 			} else {
 				lines = append(lines, slices.Concat(getCursorPos(len(lst.Name)+3+len(v), Aligns.Middle), lst.Color, []byte(lst.Name), lst.AccentColor, []byte(" ▷ "), lst.ValueColor, []byte(v), Colors.Reset))
@@ -228,9 +278,9 @@ func (mm *MainMenu) Render() error {
 			itemLen += 1
 			if itemLen == mm.cur.selected {
 				if opt.editing {
-					lines = append(lines, slices.Concat(getCursorPos(len(opt.Name)+3+len(opt.value), Aligns.Middle), opt.Color, []byte(opt.Name), opt.AccentColor, []byte(" ▷ "), mm.cur.SelectBGColor, mm.cur.SelectColor, []byte(opt.value), Colors.Reset))
+					lines = append(lines, slices.Concat(getCursorPos(len(opt.Name)+3+len(opt.value), Aligns.Middle), opt.Color, []byte(opt.Name), opt.AccentColor, []byte(" ▷ "), opt.SelectBGColor, opt.SelectColor, []byte(opt.value), Colors.Reset))
 				} else {
-					lines = append(lines, slices.Concat(getCursorPos(len(opt.Name)+3+len(opt.value), Aligns.Middle), mm.cur.SelectBGColor, mm.cur.SelectColor, []byte(opt.Name), Colors.Reset, opt.AccentColor, []byte(" ▷ "), opt.ValueColor, []byte(opt.value), Colors.Reset))
+					lines = append(lines, slices.Concat(getCursorPos(len(opt.Name)+3+len(opt.value), Aligns.Middle), opt.SelectBGColor, opt.SelectColor, []byte(opt.Name), Colors.Reset, opt.AccentColor, []byte(" ▷ "), opt.ValueColor, []byte(opt.value), Colors.Reset))
 				}
 			} else {
 				lines = append(lines, slices.Concat(getCursorPos(len(opt.Name)+3+len(opt.value), Aligns.Middle), opt.Color, []byte(opt.Name), opt.AccentColor, []byte(" ▷ "), opt.ValueColor, []byte(opt.value), Colors.Reset))
@@ -250,7 +300,7 @@ func (mm *MainMenu) Render() error {
 		lines = append(lines, slices.Concat(getCursorPos(len(backText)+2, Aligns.Middle), mm.cur.AccentColor, []byte("◀ "), mm.cur.Color, []byte(backText), Colors.Reset))
 	}
 
-	if _, err := mm.trm.Write(slices.Concat([]byte("\033[2J\033[0;0H"), bytes.Join(lines, []byte("\r\n")))); err != nil {
+	if _, err := mm.trm.Write(slices.Concat([]byte("\033[2J\033[0;0H"), bytes.Join(lines, []byte("\r\n")), []byte("\r\n"))); err != nil {
 		return err
 	}
 	return nil
@@ -282,7 +332,7 @@ func (mm *MainMenu) Start(state *term.State) error {
 	go func() {
 		defer func() { _ = term.Restore(int(os.Stdin.Fd()), state) }()
 
-		_ = mm.Render()
+		_ = (*mm.renderer)()
 		for {
 			mn, err := mm.cur.edit()
 			if err != nil {
@@ -297,7 +347,7 @@ func (mm *MainMenu) Start(state *term.State) error {
 				break
 			}
 			mm.cur = mn
-			_ = mm.Render()
+			_ = (*mm.renderer)()
 		}
 
 		if _, err := mm.trm.Write([]byte("\033[2J\033[0;0H")); err != nil {
@@ -333,7 +383,7 @@ func main() {
 	}
 	defer func() { _ = term.Restore(int(os.Stdin.Fd()), oldState) }()
 
-	mn, err := NewMenu("Some Title")
+	mn, err := NewMenuWithRenderer("Some Title", Render)
 	if err != nil {
 		fmt.Println(err)
 		return

@@ -9,14 +9,16 @@ import (
 )
 
 type list struct {
-	Name        string
-	Color       color
-	AccentColor color
-	ValueColor  color
-	Allowed     []string
-	selected    int
-	editing     bool
-	renderer    *func() error
+	Name          string
+	Color         color
+	AccentColor   color
+	SelectColor   color
+	SelectBGColor color
+	ValueColor    color
+	Allowed       []string
+	selected      int
+	editing       bool
+	renderer      *func() error
 }
 
 // Add a new list to `m.Lists`.
@@ -25,16 +27,18 @@ type list struct {
 //
 // Returns a pointer to the new list.
 //
-// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.ValueColor` before creating options.
+// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.SelectBGColor`, `tui.Defaults.ValueColor` before creating menus.
 func (m *menu) NewList(name string) *list {
 	lst := &list{
-		Name:        name,
-		Color:       Defaults.Color,
-		AccentColor: Defaults.AccentColor,
-		ValueColor:  Defaults.ValueColor,
-		Allowed:     []string{"Yes", "No"},
-		selected:    0,
-		renderer:    m.renderer,
+		Name:          name,
+		Color:         Defaults.Color,
+		AccentColor:   Defaults.AccentColor,
+		SelectColor:   Defaults.SelectColor,
+		SelectBGColor: Defaults.SelectBGColor,
+		ValueColor:    Defaults.ValueColor,
+		Allowed:       []string{"Yes", "No"},
+		selected:      0,
+		renderer:      m.renderer,
 	}
 	m.Lists = append(m.Lists, lst)
 	return lst

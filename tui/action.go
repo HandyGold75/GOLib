@@ -1,9 +1,11 @@
 package main
 
 type action struct {
-	Name     string
-	Color    color
-	callback func()
+	Name          string
+	Color         color
+	SelectColor   color
+	SelectBGColor color
+	callback      func()
 }
 
 // Add a new action to `m.Actions`.
@@ -15,9 +17,11 @@ type action struct {
 // To set default colors set `tui.Defaults.Color` before creating options.
 func (m *menu) NewAction(name string, callback func()) *action {
 	act := &action{
-		Name:     name,
-		Color:    Defaults.Color,
-		callback: callback,
+		Name:          name,
+		Color:         Defaults.Color,
+		SelectColor:   Defaults.SelectColor,
+		SelectBGColor: Defaults.SelectBGColor,
+		callback:      callback,
 	}
 	m.Actions = append(m.Actions, act)
 	return act

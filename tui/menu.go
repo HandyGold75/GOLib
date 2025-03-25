@@ -47,7 +47,7 @@ func (m *menu) NewMenu(title string) *menu {
 	return mn
 }
 
-func (m *menu) right() (error, *menu) {
+func (m *menu) enter() (error, *menu) {
 	if s := m.selected; s < len(m.Menus) && s >= 0 {
 		return nil, m.Menus[s]
 	} else if s := m.selected - len(m.Menus); s < len(m.Actions) && s >= 0 {
@@ -88,7 +88,7 @@ func (m *menu) edit() (*menu, error) {
 			continue
 
 		} else if slices.ContainsFunc(KeyBinds.Right, func(v []byte) bool { return slices.Equal(v, in) }) {
-			err, mn := m.right()
+			err, mn := m.enter()
 			if err != nil {
 				e = err
 				break
@@ -106,7 +106,7 @@ func (m *menu) edit() (*menu, error) {
 				continue
 			}
 			m.selected = i - 1
-			err, mn := m.right()
+			err, mn := m.enter()
 			if err != nil {
 				e = err
 				break
