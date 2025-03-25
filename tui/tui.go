@@ -1,19 +1,18 @@
 package main
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"slices"
-	"strconv"
-	"strings"
 
 	"golang.org/x/term"
 )
 
 type (
+	tuiErrors struct{ Exit, NotATerm, TuiStarted, TuiNotStarted error }
+
 	colors struct {
 		Black, Red, Green, Yellow, Blue, Magenta, Cyan, White                                                                 color
 		BrightBlack, BrightRed, BrightGreen, BrightYellow, BrightBlue, BrightMagenta, BrightCyan, BrightWhite                 color
@@ -26,54 +25,28 @@ type (
 	aligns struct{ Left, Middle, Right align }
 	align  string
 
-	optionTypes struct{ String, Int, Float, Bool optionType }
-	optionType  string
+	defaults struct {
+		Color, AccentColor, ValueColor, SelectColor, SelectBGColor color
+		Align                                                      align
+	}
 
 	keybinds struct{ Up, Down, Right, Left, Exit, Numbers, Confirm, Delete [][]byte }
 
 	MainMenu struct {
-		Menu *menu
-		cur  *menu
-		exit chan error
-	}
-
-	menu struct {
-		Title         string
-		Color         color
-		AccentColor   color
-		SelectColor   color
-		SelectBGColor color
-		Align         align
-		Selected      int
-		Editing       bool
-		Back          *menu
-		Menus         []*menu
-		Actions       []*action
-		Options       []*option
-	}
-
-	action struct {
-		Name     string
-		Color    color
-		Callback func()
-	}
-
-	option struct {
-		Name        string
-		Color       color
-		AccentColor color
-		ValueColor  color
-		Allowed     string
-		Type        optionType
-		Value       string
+		Menu   *menu
+		cur    *menu
+		exit   chan error
+		active bool
 	}
 )
 
 var (
-	trm = term.NewTerminal(struct {
-		io.Reader
-		io.Writer
-	}{os.Stdin, os.Stdout}, "")
+	Errors = tuiErrors{
+		Exit:          errors.New("Tui is exiting"),
+		NotATerm:      errors.New("stdin/ stdout should be a terminal"),
+		TuiStarted:    errors.New("Tui is already Started"),
+		TuiNotStarted: errors.New("Tui is not yet Started"),
+	}
 
 	Colors = colors{
 		Black:   []byte{27, '[', '3', '0', 'm'},
@@ -114,29 +87,20 @@ var (
 
 		Reset: []byte{27, '[', '0', 'm'},
 	}
-
 	Aligns = aligns{
 		Left:   "Left",
 		Middle: "Middle",
 		Right:  "Right",
 	}
 
-	Types = optionTypes{
-		String: "String",
-		Int:    "Int",
-		Float:  "Float",
-		Bool:   "Bool",
+	Defaults = defaults{
+		Color:         Colors.Red,
+		AccentColor:   Colors.Black,
+		ValueColor:    Colors.BrightWhite,
+		SelectColor:   Colors.Black,
+		SelectBGColor: Colors.BGWhite,
+		Align:         Aligns.Middle,
 	}
-
-	DefaultColor       = Colors.Red
-	DefaultAccentColor = Colors.Black
-	DefaultValueColor  = Colors.BrightWhite
-
-	DefaultSelectColor   = Colors.Black
-	DefaultSelectBGColor = Colors.BGWhite
-
-	DefaultAlign = Aligns.Middle
-	DefaultType  = Types.String
 
 	KeyBinds = keybinds{
 		Up:      [][]byte{{119, 0, 0}, {107, 0, 0}, {27, 91, 65}},                                                                                 // W, K, UP
@@ -150,228 +114,67 @@ var (
 	}
 )
 
-// To set default colors set `tui.DefaultColor`, `tui.DefaultAccentColor` before creating menus.
+// Get a new main menu.
 //
-// To set default alignment set `tui.DefaultAlign` before creating menus.
+// Only 1 main menu should be active (started) at a time.
 //
-// Allowed colors are `tui.Colors.*`.
-func NewMenu(title string) *MainMenu {
+// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.SelectBGColor` before creating menus.
+//
+// To set default alignment set `tui.Defaults.Align` before creating menus.
+func NewMenu(title string) (*MainMenu, error) {
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		return nil, Errors.NotATerm
+	}
+
 	mn := &menu{
 		Title:         title,
-		Color:         DefaultColor,
-		AccentColor:   DefaultAccentColor,
-		SelectColor:   DefaultSelectColor,
-		SelectBGColor: DefaultSelectBGColor,
-		Align:         DefaultAlign,
-		Selected:      0,
-		Back:          nil,
-		Menus:         []*menu{},
-		Actions:       []*action{},
-		Options:       []*option{},
+		Color:         Defaults.Color,
+		AccentColor:   Defaults.AccentColor,
+		SelectColor:   Defaults.SelectColor,
+		SelectBGColor: Defaults.SelectBGColor,
+		Align:         Defaults.Align,
+		selected:      0,
+		back:          nil,
+		trm: term.NewTerminal(struct {
+			io.Reader
+			io.Writer
+		}{os.Stdin, os.Stdout}, ""),
+		Menus:   []*menu{},
+		Actions: []*action{},
+		Options: []*option{},
+		Lists:   []*list{},
 	}
 	return &MainMenu{
-		Menu: mn,
-		cur:  mn,
-		exit: make(chan error),
-	}
+		Menu:   mn,
+		cur:    mn,
+		exit:   make(chan error),
+		active: false,
+	}, nil
 }
 
-// Add a new menu to m.Menus
+// Start tui, this will render and handle user input in a goroutine.
 //
-// Returns a pointer to the new menu.
-func (m *menu) NewMenu(title string) *menu {
-	mn := &menu{
-		Title:         title,
-		Color:         DefaultColor,
-		AccentColor:   DefaultAccentColor,
-		SelectColor:   DefaultSelectColor,
-		SelectBGColor: DefaultSelectBGColor,
-		Align:         DefaultAlign,
-		Back:          m,
-		Menus:         []*menu{},
-		Actions:       []*action{},
-		Options:       []*option{},
-	}
-	m.Menus = append(m.Menus, mn)
-	return mn
-}
-
-// Add a new action to m.Actions
+// Term should be in raw mode, the previous state returned by `term.MakeRaw` should be passed to `state`.
+// `state` can also be `nil` and term will automaticlly be put term in raw mode.
 //
-// Returns a pointer to the new action.
-//
-// To set default colors set `tui.DefaultColor` before creating options.
-func (m *menu) NewAction(name string, callback func()) *action {
-	act := &action{
-		Name:     name,
-		Color:    DefaultColor,
-		Callback: callback,
-	}
-	m.Actions = append(m.Actions, act)
-	return act
-}
-
-// Add a new option to m.Options
-//
-// Returns a pointer to the new option.
-//
-// To set default colors set `tui.DefaultColor`, `tui.DefaultAccentColor`, `tui.DefaultValueColor` before creating options.
-//
-// To set default types set `tui.DefaultType` before creating options.
-func (m *menu) NewOption(name string, value string) *option {
-	opt := &option{
-		Name:        name,
-		Color:       DefaultColor,
-		AccentColor: DefaultAccentColor,
-		ValueColor:  DefaultValueColor,
-		Allowed:     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
-		Type:        DefaultType,
-		Value:       value,
-	}
-	m.Options = append(m.Options, opt)
-	return opt
-}
-
-func (m *menu) up() {
-	m.Selected = max(m.Selected-1, 0)
-	_ = m.Render()
-}
-
-func (m *menu) down() {
-	m.Selected = min(m.Selected+1, len(m.Menus)+len(m.Actions)+len(m.Options))
-	_ = m.Render()
-}
-
-func (m *menu) right() (error, *menu) {
-	if s := m.Selected; s < len(m.Menus) && s >= 0 {
-		return nil, m.Menus[s]
-	} else if s := m.Selected - len(m.Menus); s < len(m.Actions) && s >= 0 {
-		m.Actions[s].Callback()
-		return errors.New("exit"), nil
-	} else if s := m.Selected - len(m.Menus) - len(m.Actions); s < len(m.Options) && s >= 0 {
-		if err := m.editOption(m.Options[s]); err != nil {
-			return err, nil
-		}
-		return nil, m
-	}
-	if m.Back == nil {
-		return errors.New("exit"), nil
-	}
-	return nil, m.Back
-}
-
-func (m *menu) editOption(o *option) error {
-	var e error
-	m.Editing = true
-	_ = m.Render()
-
-	for {
-		in := make([]byte, 3)
-		if _, err := os.Stdin.Read(in); err != nil {
-			e = err
-			break
-		}
-
-		if slices.ContainsFunc(KeyBinds.Exit, func(v []byte) bool { return slices.Equal(v, in) }) || slices.ContainsFunc(KeyBinds.Confirm, func(v []byte) bool { return slices.Equal(v, in) }) {
-			break
-		} else if slices.ContainsFunc(KeyBinds.Delete, func(v []byte) bool { return slices.Equal(v, in) }) {
-			if len(o.Value) > 0 {
-				o.Value = o.Value[:len(o.Value)-1]
-				_ = m.Render()
-				continue
-			}
-		}
-
-		if strings.ContainsAny(o.Allowed, string(in[:])) {
-			o.Value += string(bytes.Trim(in, "\x00")[:])
-			_ = m.Render()
-		}
-	}
-
-	m.Editing = false
-	_ = m.Render()
-	return e
-}
-
-func (m *menu) Render() error {
-	x, _, err := term.GetSize(int(os.Stdin.Fd()))
-	if err != nil {
-		return err
-	}
-	getCursorPos := func(textWidth int, alignment align) []byte {
-		if alignment == Aligns.Left {
-			return []byte{}
-		} else if alignment == Aligns.Middle {
-			return []byte("\033[" + strconv.Itoa(int((float64(x)/2)-(float64(textWidth)/2))) + "C")
-		} else if alignment == Aligns.Right {
-			return []byte("\033[" + strconv.Itoa(x-textWidth) + "C")
-		}
-		return []byte{}
-	}
-
-	itemLen := -1
-	lines := append([][]byte{}, slices.Concat(getCursorPos(len(m.Title), Aligns.Middle), m.Color, []byte(m.Title), Colors.Reset))
-	lines = append(lines, slices.Concat(m.AccentColor, []byte(strings.Repeat("─", x)), Colors.Reset))
-
-	if len(m.Menus) > 0 {
-		for _, mn := range m.Menus {
-			itemLen += 1
-			if itemLen == m.Selected {
-				lines = append(lines, slices.Concat(getCursorPos(len(mn.Title)+2, Aligns.Middle), m.SelectBGColor, m.SelectColor, []byte(mn.Title), Colors.Reset, m.AccentColor, []byte(" 🞂"), Colors.Reset))
-			} else {
-				lines = append(lines, slices.Concat(getCursorPos(len(mn.Title)+2, Aligns.Middle), mn.Color, []byte(mn.Title), m.AccentColor, []byte(" 🞂"), Colors.Reset))
-			}
-		}
-		lines = append(lines, []byte{})
-	}
-
-	if len(m.Actions) > 0 {
-		for _, act := range m.Actions {
-			itemLen += 1
-			if itemLen == m.Selected {
-				lines = append(lines, slices.Concat(getCursorPos(len(act.Name), Aligns.Middle), m.SelectBGColor, m.SelectColor, []byte(act.Name), Colors.Reset))
-			} else {
-				lines = append(lines, slices.Concat(getCursorPos(len(act.Name), Aligns.Middle), act.Color, []byte(act.Name), Colors.Reset))
-			}
-		}
-		lines = append(lines, []byte{})
-	}
-
-	if len(m.Options) > 0 {
-		for _, opt := range m.Options {
-			itemLen += 1
-			if itemLen == m.Selected {
-				if m.Editing {
-					lines = append(lines, slices.Concat(getCursorPos(len(opt.Name)+3+len(opt.Value), Aligns.Middle), opt.Color, []byte(opt.Name), opt.AccentColor, []byte(" ▷ "), m.SelectBGColor, m.SelectColor, []byte(opt.Value), Colors.Reset))
-				} else {
-					lines = append(lines, slices.Concat(getCursorPos(len(opt.Name)+3+len(opt.Value), Aligns.Middle), m.SelectBGColor, m.SelectColor, []byte(opt.Name), Colors.Reset, opt.AccentColor, []byte(" ▷ "), opt.ValueColor, []byte(opt.Value), Colors.Reset))
-				}
-			} else {
-				lines = append(lines, slices.Concat(getCursorPos(len(opt.Name)+3+len(opt.Value), Aligns.Middle), opt.Color, []byte(opt.Name), opt.AccentColor, []byte(" ▷ "), opt.ValueColor, []byte(opt.Value), Colors.Reset))
-			}
-		}
-		lines = append(lines, []byte{})
-	}
-
-	backText := "Exit"
-	if m.Back != nil {
-		backText = "Back"
-	}
-	itemLen += 1
-	if itemLen == m.Selected {
-		lines = append(lines, slices.Concat(getCursorPos(len(backText)+2, Aligns.Middle), m.AccentColor, []byte("◀ "), m.SelectBGColor, m.SelectColor, []byte(backText), Colors.Reset))
-	} else {
-		lines = append(lines, slices.Concat(getCursorPos(len(backText)+2, Aligns.Middle), m.AccentColor, []byte("◀ "), m.Color, []byte(backText), Colors.Reset))
-	}
-
-	if _, err := trm.Write(slices.Concat([]byte("\033[2J\033[0;0H"), bytes.Join(lines, []byte("\r\n")))); err != nil {
-		return err
-	}
-	return nil
-}
-
 // Restores term to `state` after the tui stops.
-func (mm *MainMenu) Start(state *term.State) {
+// When panicking outside of the goroutine the restore will not happen and will need to be done in the goroutine that is panicking.
+//
+// `mm.Join` should always be called to ensure the goroutine joins back.
+func (mm *MainMenu) Start(state *term.State) error {
+	if mm.active {
+		return Errors.TuiStarted
+	}
+	mm.active = true
+
+	if state == nil {
+		s, err := term.MakeRaw(int(os.Stdin.Fd()))
+		if err != nil {
+			return err
+		}
+		state = s
+	}
+
 	go func() {
 		defer func() { _ = term.Restore(int(os.Stdin.Fd()), state) }()
 
@@ -406,10 +209,10 @@ func (mm *MainMenu) Start(state *term.State) {
 				continue
 
 			} else if slices.ContainsFunc(KeyBinds.Left, func(v []byte) bool { return slices.Equal(v, in) }) {
-				if mm.cur.Back == nil {
+				if mm.cur.back == nil {
 					break
 				}
-				mm.cur = mm.cur.Back
+				mm.cur = mm.cur.back
 				_ = mm.cur.Render()
 				continue
 
@@ -417,7 +220,7 @@ func (mm *MainMenu) Start(state *term.State) {
 				if i > len(mm.cur.Menus)+len(mm.cur.Actions)+len(mm.cur.Options) {
 					continue
 				}
-				mm.cur.Selected = i - 1
+				mm.cur.selected = i - 1
 				err, mn := mm.cur.right()
 				if err != nil {
 					e = err
@@ -429,51 +232,70 @@ func (mm *MainMenu) Start(state *term.State) {
 			}
 		}
 
-		if _, err := trm.Write([]byte("\033[2J\033[0;0H")); err != nil {
+		if e != nil {
+			if e == Errors.Exit {
+				e = nil
+			}
+			mm.exit <- e
+		} else if _, err := mm.cur.trm.Write([]byte("\033[2J\033[0;0H")); err != nil {
 			mm.exit <- err
-			return
 		}
-		mm.exit <- e
+		close(mm.exit)
 	}()
-}
 
-func (mm *MainMenu) Join() error {
-	err := <-mm.exit
-	close(mm.exit)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
-func main() {
-	if !term.IsTerminal(int(os.Stdin.Fd())) {
-		panic(errors.New("stdin/ stdout should be a terminal"))
+// Waits until `mm.Start` has finished and returns errors generated by `mm.Start`.
+func (mm *MainMenu) Join() error {
+	if !mm.active {
+		return Errors.TuiNotStarted
 	}
 
+	var e error
+	for err := range mm.exit {
+		e = err
+	}
+
+	mm.exit = make(chan error)
+	mm.active = false
+
+	return e
+}
+
+func main() {
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {
 		panic(err)
 	}
 	defer func() { _ = term.Restore(int(os.Stdin.Fd()), oldState) }()
 
-	mn := NewMenu("Some Title")
+	mn, err := NewMenu("Some Title")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
 	mn1 := mn.Menu.NewMenu("A Sub menu")
-	mn1.NewOption("some Option 1", "value")
+	mn1.NewOption("some Option 1", "val")
 	mn2 := mn.Menu.NewMenu("Antoher Sub menu")
-	mn2.NewOption("some Option 2", "value")
-	mn.Menu.NewOption("some Option", "value")
-	mn.Menu.NewOption("somemore Option", "value")
+	mn2.NewOption("some Option 2", "val")
+	mn.Menu.NewOption("some Option", "val")
+	mn.Menu.NewOption("somemore Option", "val")
 	mn.Menu.NewAction("a Action", func() {})
 	mn.Menu.NewAction("evenmore Action", func() {})
 
-	mn.Start(oldState)
-	if err := mn.Join(); err != nil {
+	if err := mn.Start(oldState); err != nil {
 		fmt.Println(err)
+		return
 	}
 
-	if _, err := trm.Write([]byte("\033[2J\033[0;0H")); err != nil {
+	if err := mn.Join(); err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	if _, err := mn.cur.trm.Write([]byte("\033[2J\033[0;0H")); err != nil {
 		panic(err)
 	}
 }
