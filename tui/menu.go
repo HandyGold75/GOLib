@@ -1,25 +1,64 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"slices"
+	"strconv"
+	"strings"
 )
 
-type menu struct {
-	Title         string
-	Color         color
-	AccentColor   color
-	SelectColor   color
-	SelectBGColor color
-	Align         align
-	selected      int
-	back          *menu
-	renderer      *func() error
-	Menus         []*menu
-	Actions       []*action
-	Lists         []*list
-	Options       []*option
-}
+type (
+	menu struct {
+		Title         string
+		Color         color
+		AccentColor   color
+		SelectColor   color
+		SelectBGColor color
+		Align         align
+		selected      int
+		back          *menu
+		renderer      *func() error
+		Menus         []*menu
+		Actions       []*action
+		Lists         []*list
+		Options       []*option
+	}
+
+	action struct {
+		Name          string
+		Color         color
+		SelectColor   color
+		SelectBGColor color
+		callback      func()
+	}
+
+	list struct {
+		Name          string
+		Color         color
+		AccentColor   color
+		SelectColor   color
+		SelectBGColor color
+		ValueColor    color
+		Allowed       []string
+		selected      int
+		editing       bool
+		renderer      *func() error
+	}
+
+	option struct {
+		Name          string
+		Color         color
+		AccentColor   color
+		ValueColor    color
+		SelectColor   color
+		SelectBGColor color
+		Allowed       string
+		value         string
+		editing       bool
+		renderer      *func() error
+	}
+)
 
 // Add a new menu to `m.Menus`.
 //
@@ -115,4 +154,188 @@ func (m *menu) edit() (*menu, error) {
 		}
 	}
 	return nil, e
+}
+
+// Add a new action to `m.Actions`.
+//
+// `callback` is called when this actions is selected.
+//
+// Returns a pointer to the new action.
+//
+// To set default colors set `tui.Defaults.Color` before creating options.
+func (m *menu) NewAction(name string, callback func()) *action {
+	act := &action{
+		Name:          name,
+		Color:         Defaults.Color,
+		SelectColor:   Defaults.SelectColor,
+		SelectBGColor: Defaults.SelectBGColor,
+		callback:      callback,
+	}
+	m.Actions = append(m.Actions, act)
+	return act
+}
+
+// Add a new list to `m.Lists`.
+//
+// Only options in `l.Allowed` can be selected.
+//
+// Returns a pointer to the new list.
+//
+// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.SelectBGColor`, `tui.Defaults.ValueColor` before creating menus.
+func (m *menu) NewList(name string) *list {
+	lst := &list{
+		Name:          name,
+		Color:         Defaults.Color,
+		AccentColor:   Defaults.AccentColor,
+		SelectColor:   Defaults.SelectColor,
+		SelectBGColor: Defaults.SelectBGColor,
+		ValueColor:    Defaults.ValueColor,
+		Allowed:       []string{"Yes", "No"},
+		selected:      0,
+		renderer:      m.renderer,
+	}
+	m.Lists = append(m.Lists, lst)
+	return lst
+}
+
+// Get the value as a string.
+func (l *list) Get() string { return l.Allowed[l.selected] }
+
+// Get the value as a int.
+func (l *list) GetInt() (int, error) { return strconv.Atoi(l.Allowed[l.selected]) }
+
+// Get the value as a float.
+func (l *list) GetFloat() (float64, error) { return strconv.ParseFloat(l.Allowed[l.selected], 64) }
+
+// Get the value as a bool.
+// It return true opon one of these values (case insensitive): 1, t, true, y, yes
+func (l *list) GetBool() bool {
+	return slices.Contains([]string{"1", "t", "true", "y", "yes"}, strings.ToLower(l.Allowed[l.selected]))
+}
+
+func (l *list) edit() error {
+	var e error
+	l.editing = true
+	_ = (*l.renderer)()
+
+	for {
+		in := make([]byte, 3)
+		if _, err := os.Stdin.Read(in); err != nil {
+			e = err
+			break
+		}
+
+		if slices.ContainsFunc(KeyBinds.Exit, func(v []byte) bool { return slices.Equal(v, in) }) || slices.ContainsFunc(KeyBinds.Confirm, func(v []byte) bool { return slices.Equal(v, in) }) {
+			break
+		} else if slices.ContainsFunc(KeyBinds.Up, func(v []byte) bool { return slices.Equal(v, in) }) {
+			l.selected = max(l.selected-1, 0)
+			_ = (*l.renderer)()
+			continue
+
+		} else if slices.ContainsFunc(KeyBinds.Down, func(v []byte) bool { return slices.Equal(v, in) }) {
+			l.selected = min(l.selected+1, len(l.Allowed)-1)
+			_ = (*l.renderer)()
+			continue
+
+		} else if slices.ContainsFunc(KeyBinds.Right, func(v []byte) bool { return slices.Equal(v, in) }) {
+			break
+		} else if slices.ContainsFunc(KeyBinds.Left, func(v []byte) bool { return slices.Equal(v, in) }) {
+			break
+		} else if i := slices.IndexFunc(KeyBinds.Numbers, func(v []byte) bool { return slices.Equal(v, in) }); i != -1 {
+			if i > len(l.Allowed)-1 {
+				continue
+			}
+			l.selected = i
+			_ = (*l.renderer)()
+			continue
+		}
+
+		for i, str := range l.Allowed {
+			if !strings.HasPrefix(strings.ToLower(str), string(bytes.Trim(in, "\x00")[:])) {
+				continue
+			}
+			l.selected = i
+			_ = (*l.renderer)()
+			continue
+		}
+
+		for i, str := range l.Allowed {
+			if !strings.HasPrefix(strings.ToLower(str), strings.ToLower(string(bytes.Trim(in, "\x00")[:]))) {
+				continue
+			}
+			l.selected = i
+			_ = (*l.renderer)()
+			continue
+		}
+	}
+
+	l.editing = false
+	_ = (*l.renderer)()
+	return e
+}
+
+// Add a new option to `m.Options`.
+//
+// Only characters in `o.Allowed` can be entered.
+// `value` is the default value and is not checked against `o.Allowed`.
+//
+// Returns a pointer to the new option.
+//
+// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.SelectBGColor`, `tui.Defaults.ValueColor` before creating menus.
+func (m *menu) NewOption(name string, value string) *option {
+	opt := &option{
+		Name:          name,
+		Color:         Defaults.Color,
+		AccentColor:   Defaults.AccentColor,
+		SelectColor:   Defaults.SelectColor,
+		SelectBGColor: Defaults.SelectBGColor,
+		ValueColor:    Defaults.ValueColor,
+		Allowed:       "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+		value:         value,
+		renderer:      m.renderer,
+	}
+	m.Options = append(m.Options, opt)
+	return opt
+}
+
+// Get the value as a string.
+func (o *option) Get() string { return o.value }
+
+// Get the value as a int.
+func (o *option) GetInt() (int, error) { return strconv.Atoi(o.value) }
+
+// Get the value as a float.
+func (o *option) GetFloat() (float64, error) { return strconv.ParseFloat(o.value, 64) }
+
+func (o *option) edit() error {
+	var e error
+	o.editing = true
+	_ = (*o.renderer)()
+
+	for {
+		in := make([]byte, 3)
+		if _, err := os.Stdin.Read(in); err != nil {
+			e = err
+			break
+		}
+
+		if slices.ContainsFunc(KeyBinds.Exit, func(v []byte) bool { return slices.Equal(v, in) }) || slices.ContainsFunc(KeyBinds.Confirm, func(v []byte) bool { return slices.Equal(v, in) }) {
+			break
+		} else if slices.ContainsFunc(KeyBinds.Delete, func(v []byte) bool { return slices.Equal(v, in) }) {
+			if len(o.value) > 0 {
+				o.value = o.value[:len(o.value)-1]
+				_ = (*o.renderer)()
+				continue
+			}
+		}
+
+		if strings.ContainsAny(o.Allowed, string(in[:])) {
+			o.value += string(bytes.Trim(in, "\x00")[:])
+			_ = (*o.renderer)()
+		}
+	}
+
+	o.editing = false
+	_ = (*o.renderer)()
+	return e
 }
