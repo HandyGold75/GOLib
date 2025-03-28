@@ -15,6 +15,7 @@ type (
 		AccentColor   color
 		SelectColor   color
 		SelectBGColor color
+		ValueColor    color
 		Align         align
 		selected      int
 		back          *menu
@@ -26,37 +27,24 @@ type (
 	}
 
 	action struct {
-		Name          string
-		Color         color
-		SelectColor   color
-		SelectBGColor color
-		callback      func()
+		Name     string
+		callback func()
 	}
 
 	list struct {
-		Name          string
-		Color         color
-		AccentColor   color
-		SelectColor   color
-		SelectBGColor color
-		ValueColor    color
-		Allowed       []string
-		selected      int
-		editing       bool
-		renderer      *func() error
+		Name     string
+		Allowed  []string
+		selected int
+		editing  bool
+		renderer *func() error
 	}
 
 	option struct {
-		Name          string
-		Color         color
-		AccentColor   color
-		ValueColor    color
-		SelectColor   color
-		SelectBGColor color
-		Allowed       string
-		value         string
-		editing       bool
-		renderer      *func() error
+		Name     string
+		Allowed  string
+		value    string
+		editing  bool
+		renderer *func() error
 	}
 )
 
@@ -64,7 +52,7 @@ type (
 //
 // Returns a pointer to the new menu.
 //
-// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.SelectBGColor` before creating menus.
+// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.SelectBGColor`, `tui.Defaults.ValueColor` before creating menus.
 //
 // To set default alignment set `tui.Defaults.Align` before creating menus.
 func (m *menu) NewMenu(title string) *menu {
@@ -74,6 +62,7 @@ func (m *menu) NewMenu(title string) *menu {
 		AccentColor:   Defaults.AccentColor,
 		SelectColor:   Defaults.SelectColor,
 		SelectBGColor: Defaults.SelectBGColor,
+		ValueColor:    Defaults.ValueColor,
 		Align:         Defaults.Align,
 		back:          m,
 		renderer:      m.renderer,
@@ -161,15 +150,10 @@ func (m *menu) edit() (*menu, error) {
 // `callback` is called when this actions is selected.
 //
 // Returns a pointer to the new action.
-//
-// To set default colors set `tui.Defaults.Color` before creating options.
 func (m *menu) NewAction(name string, callback func()) *action {
 	act := &action{
-		Name:          name,
-		Color:         Defaults.Color,
-		SelectColor:   Defaults.SelectColor,
-		SelectBGColor: Defaults.SelectBGColor,
-		callback:      callback,
+		Name:     name,
+		callback: callback,
 	}
 	m.Actions = append(m.Actions, act)
 	return act
@@ -180,19 +164,12 @@ func (m *menu) NewAction(name string, callback func()) *action {
 // Only options in `l.Allowed` can be selected.
 //
 // Returns a pointer to the new list.
-//
-// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.SelectBGColor`, `tui.Defaults.ValueColor` before creating menus.
 func (m *menu) NewList(name string) *list {
 	lst := &list{
-		Name:          name,
-		Color:         Defaults.Color,
-		AccentColor:   Defaults.AccentColor,
-		SelectColor:   Defaults.SelectColor,
-		SelectBGColor: Defaults.SelectBGColor,
-		ValueColor:    Defaults.ValueColor,
-		Allowed:       []string{"Yes", "No"},
-		selected:      0,
-		renderer:      m.renderer,
+		Name:     name,
+		Allowed:  []string{"Yes", "No"},
+		selected: 0,
+		renderer: m.renderer,
 	}
 	m.Lists = append(m.Lists, lst)
 	return lst
@@ -280,19 +257,12 @@ func (l *list) edit() error {
 // `value` is the default value and is not checked against `o.Allowed`.
 //
 // Returns a pointer to the new option.
-//
-// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.SelectBGColor`, `tui.Defaults.ValueColor` before creating menus.
 func (m *menu) NewOption(name string, value string) *option {
 	opt := &option{
-		Name:          name,
-		Color:         Defaults.Color,
-		AccentColor:   Defaults.AccentColor,
-		SelectColor:   Defaults.SelectColor,
-		SelectBGColor: Defaults.SelectBGColor,
-		ValueColor:    Defaults.ValueColor,
-		Allowed:       "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
-		value:         value,
-		renderer:      m.renderer,
+		Name:     name,
+		Allowed:  "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+		value:    value,
+		renderer: m.renderer,
 	}
 	m.Options = append(m.Options, opt)
 	return opt

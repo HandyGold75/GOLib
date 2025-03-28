@@ -165,7 +165,7 @@ func NewMenu(title string) (*MainMenu, error) {
 //
 // Only 1 main menu should be active (started) at a time.
 //
-// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.SelectBGColor` before creating menus.
+// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.SelectBGColor`, `tui.Defaults.ValueColor` before creating menus.
 //
 // To set default alignment set `tui.Defaults.Align` before creating menus.
 func NewMenuCustom(title string, renderer func(*MainMenu) error) (*MainMenu, error) {
@@ -179,6 +179,7 @@ func NewMenuCustom(title string, renderer func(*MainMenu) error) (*MainMenu, err
 		AccentColor:   Defaults.AccentColor,
 		SelectColor:   Defaults.SelectColor,
 		SelectBGColor: Defaults.SelectBGColor,
+		ValueColor:    Defaults.ValueColor,
 		Align:         Defaults.Align,
 		selected:      0,
 		back:          nil,
@@ -284,7 +285,7 @@ func main() {
 	}
 	defer func() { _ = term.Restore(int(os.Stdin.Fd()), oldState) }()
 
-	mn, err := NewMenuWithRenderer("Some Title", Render)
+	mn, err := NewMenuCustom("Some Title", RenderBig)
 	if err != nil {
 		fmt.Println(err)
 		return
