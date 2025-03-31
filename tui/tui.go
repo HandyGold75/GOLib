@@ -291,13 +291,14 @@ func main() {
 		return
 	}
 
-	mn1 := mn.Menu.NewMenu("A Sub menu")
+	mn1 := mn.Menu.NewMenu("A Sxb menu")
 	mn1.NewOption("some Option 1", "val")
 	mn2 := mn.Menu.NewMenu("Antoher Sub menu")
 	mn2.NewOption("some Option 2", "val")
-	mn.Menu.NewList("some List")
-	mn.Menu.NewOption("some Option", "val")
-	mn.Menu.NewOption("somemore Option", "val")
+	lst := mn.Menu.NewList("some List")
+	lst.Allowed = append(lst.Allowed, "Maybe")
+	mn.Menu.NewOption("some Option a very nemeeeee", "someverutylongoon")
+	mn.Menu.NewOption("somemore Option", "!!")
 	mn.Menu.NewAction("a Action", func() {})
 	mn.Menu.NewAction("evenmore Action", func() {})
 
