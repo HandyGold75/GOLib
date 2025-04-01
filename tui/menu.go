@@ -19,11 +19,19 @@ type (
 		Align         align
 		selected      int
 		back          *menu
-		renderer      *func() error
+		rdr           renderer
 		Menus         []*menu
 		Actions       []*action
 		Lists         []*list
 		Options       []*option
+	}
+
+	item interface {
+		Get() string
+		GetInt() (int, error)
+		GetFloat() (float64, error)
+		GetBool() bool
+		edit()
 	}
 
 	action struct {
@@ -36,15 +44,15 @@ type (
 		Allowed  []string
 		selected int
 		editing  bool
-		renderer *func() error
+		rdr      renderer
 	}
 
 	option struct {
-		Name     string
-		Allowed  string
-		value    string
-		editing  bool
-		renderer *func() error
+		Name    string
+		Allowed string
+		value   string
+		editing bool
+		rdr     renderer
 	}
 )
 
@@ -65,7 +73,7 @@ func (m *menu) NewMenu(title string) *menu {
 		ValueColor:    Defaults.ValueColor,
 		Align:         Defaults.Align,
 		back:          m,
-		renderer:      m.renderer,
+		rdr:           m.rdr,
 		Menus:         []*menu{},
 		Actions:       []*action{},
 		Lists:         []*list{},
@@ -107,12 +115,12 @@ func (m *menu) edit() (*menu, error) {
 			break
 		} else if slices.ContainsFunc(KeyBinds.Up, func(v []byte) bool { return slices.Equal(v, in) }) {
 			m.selected = max(m.selected-1, 0)
-			_ = (*m.renderer)()
+			_ = m.rdr.Render()
 			continue
 
 		} else if slices.ContainsFunc(KeyBinds.Down, func(v []byte) bool { return slices.Equal(v, in) }) {
 			m.selected = min(m.selected+1, len(m.Menus)+len(m.Actions)+len(m.Lists)+len(m.Options))
-			_ = (*m.renderer)()
+			_ = m.rdr.Render()
 			continue
 
 		} else if slices.ContainsFunc(KeyBinds.Right, func(v []byte) bool { return slices.Equal(v, in) }) {
@@ -169,7 +177,7 @@ func (m *menu) NewList(name string) *list {
 		Name:     name,
 		Allowed:  []string{"Yes", "No"},
 		selected: 0,
-		renderer: m.renderer,
+		rdr:      m.rdr,
 	}
 	m.Lists = append(m.Lists, lst)
 	return lst
@@ -193,7 +201,7 @@ func (l *list) GetBool() bool {
 func (l *list) edit() error {
 	var e error
 	l.editing = true
-	_ = (*l.renderer)()
+	_ = l.rdr.Render()
 
 	for {
 		in := make([]byte, 3)
@@ -206,12 +214,12 @@ func (l *list) edit() error {
 			break
 		} else if slices.ContainsFunc(KeyBinds.Up, func(v []byte) bool { return slices.Equal(v, in) }) {
 			l.selected = max(l.selected-1, 0)
-			_ = (*l.renderer)()
+			_ = l.rdr.Render()
 			continue
 
 		} else if slices.ContainsFunc(KeyBinds.Down, func(v []byte) bool { return slices.Equal(v, in) }) {
 			l.selected = min(l.selected+1, len(l.Allowed)-1)
-			_ = (*l.renderer)()
+			_ = l.rdr.Render()
 			continue
 
 		} else if slices.ContainsFunc(KeyBinds.Right, func(v []byte) bool { return slices.Equal(v, in) }) {
@@ -223,7 +231,7 @@ func (l *list) edit() error {
 				continue
 			}
 			l.selected = i
-			_ = (*l.renderer)()
+			_ = l.rdr.Render()
 			continue
 		}
 
@@ -232,7 +240,7 @@ func (l *list) edit() error {
 				continue
 			}
 			l.selected = i
-			_ = (*l.renderer)()
+			_ = l.rdr.Render()
 			continue
 		}
 
@@ -241,13 +249,13 @@ func (l *list) edit() error {
 				continue
 			}
 			l.selected = i
-			_ = (*l.renderer)()
+			_ = l.rdr.Render()
 			continue
 		}
 	}
 
 	l.editing = false
-	_ = (*l.renderer)()
+	_ = l.rdr.Render()
 	return e
 }
 
@@ -259,10 +267,10 @@ func (l *list) edit() error {
 // Returns a pointer to the new option.
 func (m *menu) NewOption(name string, value string) *option {
 	opt := &option{
-		Name:     name,
-		Allowed:  "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
-		value:    value,
-		renderer: m.renderer,
+		Name:    name,
+		Allowed: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+		value:   value,
+		rdr:     m.rdr,
 	}
 	m.Options = append(m.Options, opt)
 	return opt
@@ -277,10 +285,16 @@ func (o *option) GetInt() (int, error) { return strconv.Atoi(o.value) }
 // Get the value as a float.
 func (o *option) GetFloat() (float64, error) { return strconv.ParseFloat(o.value, 64) }
 
+// Get the value as a bool.
+// It return true opon one of these values (case insensitive): 1, t, true, y, yes
+func (o *option) GetBool() bool {
+	return slices.Contains([]string{"1", "t", "true", "y", "yes"}, strings.ToLower(o.value))
+}
+
 func (o *option) edit() error {
 	var e error
 	o.editing = true
-	_ = (*o.renderer)()
+	_ = o.rdr.Render()
 
 	for {
 		in := make([]byte, 3)
@@ -294,18 +308,18 @@ func (o *option) edit() error {
 		} else if slices.ContainsFunc(KeyBinds.Delete, func(v []byte) bool { return slices.Equal(v, in) }) {
 			if len(o.value) > 0 {
 				o.value = o.value[:len(o.value)-1]
-				_ = (*o.renderer)()
+				_ = o.rdr.Render()
 				continue
 			}
 		}
 
 		if strings.ContainsAny(o.Allowed, string(in[:])) {
 			o.value += string(bytes.Trim(in, "\x00")[:])
-			_ = (*o.renderer)()
+			_ = o.rdr.Render()
 		}
 	}
 
 	o.editing = false
-	_ = (*o.renderer)()
+	_ = o.rdr.Render()
 	return e
 }

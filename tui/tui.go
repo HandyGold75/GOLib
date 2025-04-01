@@ -3,14 +3,13 @@ package main
 import (
 	"errors"
 	"fmt"
-	"io"
 	"os"
 
 	"golang.org/x/term"
 )
 
 type (
-	tuiErrors struct{ Exit, NotATerm, TuiStarted, TuiNotStarted error }
+	tuiErrors struct{ Exit, NotATerm, TuiStarted, TuiNotStarted, MainMenuNotHooked error }
 
 	colors struct {
 		Black, Red, Green, Yellow, Blue, Magenta, Cyan, White                                                                 color
@@ -32,21 +31,21 @@ type (
 	keybinds struct{ Up, Down, Right, Left, Exit, Numbers, Confirm, Delete [][]byte }
 
 	MainMenu struct {
-		Menu     *menu
-		cur      *menu
-		trm      *term.Terminal
-		renderer *func() error
-		exit     chan error
-		active   bool
+		Menu   *menu
+		cur    *menu
+		rdr    renderer
+		exit   chan error
+		active bool
 	}
 )
 
 var (
 	Errors = tuiErrors{
-		Exit:          errors.New("Tui is exiting"),
-		NotATerm:      errors.New("stdin/ stdout should be a terminal"),
-		TuiStarted:    errors.New("Tui is already Started"),
-		TuiNotStarted: errors.New("Tui is not yet Started"),
+		Exit:              errors.New("Tui is exiting"),
+		NotATerm:          errors.New("stdin/ stdout should be a terminal"),
+		TuiStarted:        errors.New("Tui is already Started"),
+		TuiNotStarted:     errors.New("Tui is not yet Started"),
+		MainMenuNotHooked: errors.New("Main menu not hooked to renderer"),
 	}
 
 	Colors = colors{
@@ -115,60 +114,16 @@ var (
 	}
 )
 
-// Get a new main menu.
-//
-// Only 1 main menu should be active (started) at a time.
-//
-// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.SelectBGColor` before creating menus.
-//
-// To set default alignment set `tui.Defaults.Align` before creating menus.
-func NewMenu(title string) (*MainMenu, error) {
-	if !term.IsTerminal(int(os.Stdin.Fd())) {
-		return nil, Errors.NotATerm
-	}
-
-	mn := &menu{
-		Title:         title,
-		Color:         Defaults.Color,
-		AccentColor:   Defaults.AccentColor,
-		SelectColor:   Defaults.SelectColor,
-		SelectBGColor: Defaults.SelectBGColor,
-		Align:         Defaults.Align,
-		selected:      0,
-		back:          nil,
-		renderer:      nil,
-		Menus:         []*menu{},
-		Actions:       []*action{},
-		Options:       []*option{},
-		Lists:         []*list{},
-	}
-	main := &MainMenu{
-		Menu: mn,
-		cur:  mn,
-		trm: term.NewTerminal(struct {
-			io.Reader
-			io.Writer
-		}{os.Stdin, os.Stdout}, ""),
-		renderer: nil,
-		exit:     make(chan error),
-		active:   false,
-	}
-
-	r := func() error { return RenderBasic(main) }
-	main.renderer = &r
-	mn.renderer = &r
-
-	return main, nil
-}
-
 // Get a new main menu with a custom renderer.
+//
+// The renderer will automaticlly be hooked to the main menu.
 //
 // Only 1 main menu should be active (started) at a time.
 //
 // To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.SelectBGColor`, `tui.Defaults.ValueColor` before creating menus.
 //
 // To set default alignment set `tui.Defaults.Align` before creating menus.
-func NewMenuCustom(title string, renderer func(*MainMenu) error) (*MainMenu, error) {
+func NewMenu(title string, rdr renderer) (*MainMenu, error) {
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
 		return nil, Errors.NotATerm
 	}
@@ -183,35 +138,50 @@ func NewMenuCustom(title string, renderer func(*MainMenu) error) (*MainMenu, err
 		Align:         Defaults.Align,
 		selected:      0,
 		back:          nil,
-		renderer:      nil,
+		rdr:           rdr,
 		Menus:         []*menu{},
 		Actions:       []*action{},
 		Options:       []*option{},
 		Lists:         []*list{},
 	}
 	main := &MainMenu{
-		Menu: mn,
-		cur:  mn,
-		trm: term.NewTerminal(struct {
-			io.Reader
-			io.Writer
-		}{os.Stdin, os.Stdout}, ""),
-		renderer: nil,
-		exit:     make(chan error),
-		active:   false,
+		Menu:   mn,
+		cur:    mn,
+		rdr:    rdr,
+		exit:   make(chan error),
+		active: false,
 	}
-
-	r := func() error { return renderer(main) }
-	main.renderer = &r
-	mn.renderer = &r
+	rdr.HookMainMenu(main)
 
 	return main, nil
+}
+
+// Get a new main menu with the basic renderer.
+//
+// Only 1 main menu should be active (started) at a time.
+//
+// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.SelectBGColor` before creating menus.
+//
+// To set default alignment set `tui.Defaults.Align` before creating menus.
+func NewMenuBasic(title string) (*MainMenu, error) {
+	return NewMenu(title, NewBasic())
+}
+
+// Get a new main menu with the bulky renderer.
+//
+// Only 1 main menu should be active (started) at a time.
+//
+// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.SelectBGColor` before creating menus.
+//
+// To set default alignment set `tui.Defaults.Align` before creating menus.
+func NewMenuBulky(title string) (*MainMenu, error) {
+	return NewMenu(title, NewBulky())
 }
 
 // Start tui, this will render and handle user input in a goroutine.
 //
 // Term should be in raw mode, the previous state returned by `term.MakeRaw` should be passed to `state`.
-// `state` can also be `nil` and term will automaticlly be put term in raw mode.
+// `state` can also be `nil` and term will automaticlly be put in raw mode.
 //
 // Restores term to `state` after the tui stops.
 // When panicking outside of the goroutine the restore will not happen and will need to be done in the goroutine that is panicking.
@@ -234,7 +204,7 @@ func (mm *MainMenu) Start(state *term.State) error {
 	go func() {
 		defer func() { _ = term.Restore(int(os.Stdin.Fd()), state) }()
 
-		_ = (*mm.renderer)()
+		_ = mm.rdr.Render()
 		for {
 			mn, err := mm.cur.edit()
 			if err != nil {
@@ -249,10 +219,10 @@ func (mm *MainMenu) Start(state *term.State) error {
 				break
 			}
 			mm.cur = mn
-			_ = (*mm.renderer)()
+			_ = mm.rdr.Render()
 		}
 
-		if _, err := mm.trm.Write([]byte("\033[2J\033[0;0H")); err != nil {
+		if err := mm.rdr.Clear(); err != nil {
 			mm.exit <- err
 		}
 		close(mm.exit)
@@ -285,7 +255,7 @@ func main() {
 	}
 	defer func() { _ = term.Restore(int(os.Stdin.Fd()), oldState) }()
 
-	mn, err := NewMenuCustom("Some Title", RenderBig)
+	mn, err := NewMenuBulky("Some Title")
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -297,7 +267,7 @@ func main() {
 	mn2.NewOption("some Option 2", "val")
 	lst := mn.Menu.NewList("some List")
 	lst.Allowed = append(lst.Allowed, "Maybe")
-	mn.Menu.NewOption("some Option a very nemeeeee", "someverutylongoon")
+	mn.Menu.NewOption("some Option a very", "someverutylongoon")
 	mn.Menu.NewOption("somemore Option", "!!")
 	mn.Menu.NewAction("a Action", func() {})
 	mn.Menu.NewAction("evenmore Action", func() {})
@@ -310,9 +280,5 @@ func main() {
 	if err := mn.Join(); err != nil {
 		fmt.Println(err)
 		return
-	}
-
-	if _, err := mn.trm.Write([]byte("\033[2J\033[0;0H")); err != nil {
-		panic(err)
 	}
 }
