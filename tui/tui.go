@@ -9,7 +9,7 @@ import (
 )
 
 type (
-	tuiErrors struct{ Exit, NotATerm, TuiStarted, TuiNotStarted, MainMenuNotHooked error }
+	tuiErrors struct{ NotATerm, TuiStarted, TuiNotStarted, MainMenuNotHooked, newCurrent, exit error }
 
 	colors struct {
 		Black, Red, Green, Yellow, Blue, Magenta, Cyan, White                                                                 color
@@ -41,11 +41,12 @@ type (
 
 var (
 	Errors = tuiErrors{
-		Exit:              errors.New("Tui is exiting"),
 		NotATerm:          errors.New("stdin/ stdout should be a terminal"),
-		TuiStarted:        errors.New("Tui is already Started"),
-		TuiNotStarted:     errors.New("Tui is not yet Started"),
-		MainMenuNotHooked: errors.New("Main menu not hooked to renderer"),
+		TuiStarted:        errors.New("tui is already Started"),
+		TuiNotStarted:     errors.New("tui is not yet Started"),
+		MainMenuNotHooked: errors.New("main menu not hooked to renderer"),
+
+		exit: errors.New("tui is exiting"),
 	}
 
 	Colors = colors{
@@ -129,6 +130,7 @@ func NewMenu(title string, rdr renderer) (*MainMenu, error) {
 	}
 
 	mn := &menu{
+		mm:            nil,
 		Title:         title,
 		Color:         Defaults.Color,
 		AccentColor:   Defaults.AccentColor,
@@ -136,13 +138,9 @@ func NewMenu(title string, rdr renderer) (*MainMenu, error) {
 		SelectBGColor: Defaults.SelectBGColor,
 		ValueColor:    Defaults.ValueColor,
 		Align:         Defaults.Align,
+		Items:         []item{},
 		selected:      0,
 		back:          nil,
-		rdr:           rdr,
-		Menus:         []*menu{},
-		Actions:       []*action{},
-		Options:       []*option{},
-		Lists:         []*list{},
 	}
 	main := &MainMenu{
 		Menu:   mn,
@@ -151,6 +149,7 @@ func NewMenu(title string, rdr renderer) (*MainMenu, error) {
 		exit:   make(chan error),
 		active: false,
 	}
+	mn.mm = main
 	rdr.HookMainMenu(main)
 
 	return main, nil
@@ -206,19 +205,15 @@ func (mm *MainMenu) Start(state *term.State) error {
 
 		_ = mm.rdr.Render()
 		for {
-			mn, err := mm.cur.edit()
+			err := mm.cur.enter()
 			if err != nil {
-				if err == Errors.Exit {
-					err = nil
+				if err == Errors.exit {
+					break
 				}
 				mm.exit <- err
 				close(mm.exit)
 				return
 			}
-			if mn == nil {
-				break
-			}
-			mm.cur = mn
 			_ = mm.rdr.Render()
 		}
 

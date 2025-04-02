@@ -41,6 +41,7 @@ func NewBasic() *Basic {
 	}
 }
 
+// Render the current menu of the hooked main menu.
 func (rdr *Basic) Render() error {
 	if rdr.mm == nil {
 		return Errors.MainMenuNotHooked
@@ -64,14 +65,15 @@ func (rdr *Basic) Render() error {
 		}
 
 		line := []byte{}
-		if alignment == Aligns.Left {
+		switch alignment {
+		case Aligns.Left:
 			line = []byte{}
-		} else if alignment == Aligns.Middle {
+		case Aligns.Middle:
 			i := int((float64(x) / 2) - (float64(len(tR)+len(atR)+len(vtR)) / 2))
 			if i > 0 {
 				line = []byte("\033[" + strconv.Itoa(i) + "C")
 			}
-		} else if alignment == Aligns.Right {
+		case Aligns.Right:
 			i := x - (len(tR) + len(atR) + len(vtR))
 			if i > 0 {
 				line = []byte("\033[" + strconv.Itoa(i) + "C")
@@ -89,45 +91,27 @@ func (rdr *Basic) Render() error {
 	}
 
 	lines := append([][]byte{getLine(rdr.mm.cur.Title, "", "", false, false, rdr.mm.cur.Align)}, slices.Concat(rdr.mm.cur.AccentColor, []byte(strings.Repeat("─", x)), Colors.Reset))
-	itemLen := 0
 
-	if len(rdr.mm.cur.Menus) > 0 {
-		for i, men := range rdr.mm.cur.Menus {
-			lines = append(lines, getLine(men.Title, " 🞂", "", itemLen+i == rdr.mm.cur.selected, false, rdr.mm.cur.Align))
+	for i, itm := range rdr.mm.cur.Items {
+		switch itm.Type() {
+		case "menu":
+			lines = append(lines, getLine(itm.(*menu).Title, " 🞂", "", rdr.mm.cur.selected == i, false, rdr.mm.cur.Align))
+		case "action":
+			lines = append(lines, getLine(itm.(*action).Name, "", "", rdr.mm.cur.selected == i, false, rdr.mm.cur.Align))
+		case "list":
+			lines = append(lines, getLine(itm.(*list).Name, " ▷ ", itm.String(), rdr.mm.cur.selected == i, itm.(*list).editing, rdr.mm.cur.Align))
+		case "option":
+			lines = append(lines, getLine(itm.(*option).Name, " ▷ ", itm.String(), rdr.mm.cur.selected == i, itm.(*option).editing, rdr.mm.cur.Align))
+		default:
+			lines = append(lines, []byte{})
 		}
-		lines = append(lines, []byte{})
-		itemLen += len(rdr.mm.cur.Menus)
-	}
-
-	if len(rdr.mm.cur.Actions) > 0 {
-		for i, act := range rdr.mm.cur.Actions {
-			lines = append(lines, getLine(act.Name, "", "", itemLen+i == rdr.mm.cur.selected, false, rdr.mm.cur.Align))
-		}
-		lines = append(lines, []byte{})
-		itemLen += len(rdr.mm.cur.Actions)
-	}
-
-	if len(rdr.mm.cur.Lists) > 0 {
-		for i, lst := range rdr.mm.cur.Lists {
-			lines = append(lines, getLine(lst.Name, " ▷ ", lst.Get(), itemLen+i == rdr.mm.cur.selected, lst.editing, rdr.mm.cur.Align))
-		}
-		lines = append(lines, []byte{})
-		itemLen += len(rdr.mm.cur.Lists)
-	}
-
-	if len(rdr.mm.cur.Options) > 0 {
-		for i, opt := range rdr.mm.cur.Options {
-			lines = append(lines, getLine(opt.Name, " ▷ ", opt.value, itemLen+i == rdr.mm.cur.selected, opt.editing, rdr.mm.cur.Align))
-		}
-		lines = append(lines, []byte{})
-		itemLen += len(rdr.mm.cur.Options)
 	}
 
 	backText := "Exit"
 	if rdr.mm.cur.back != nil {
 		backText = "Back"
 	}
-	lines = append(lines, getLine("", "◀ ", backText, itemLen == rdr.mm.cur.selected, itemLen == rdr.mm.cur.selected, rdr.mm.cur.Align))
+	lines = append(lines, getLine("", "◀ ", backText, rdr.mm.cur.selected >= len(rdr.mm.cur.Items), rdr.mm.cur.selected >= len(rdr.mm.cur.Items), rdr.mm.cur.Align))
 
 	if _, err := rdr.trm.Write(slices.Concat([]byte("\033[2J\033[0;0H"), bytes.Join(lines[:min(len(lines), y-1)], []byte("\r\n")), []byte("\r\n"+rdr.statusline[:min(len(rdr.statusline), y-1)]))); err != nil {
 		return err
@@ -135,13 +119,16 @@ func (rdr *Basic) Render() error {
 	return nil
 }
 
+// Set the statusline, will be displayed on the next call to `rdr.Render`.
 func (rdr *Basic) StatusLine(str string) { rdr.statusline = str }
 
+// Instantly clear the screen.
 func (rdr *Basic) Clear() error {
 	_, err := rdr.trm.Write([]byte("\033[2J\033[0;0H"))
 	return err
 }
 
+// Hook a main menu to the renderer, this is required before calling `rdr.Render`
 func (rdr *Basic) HookMainMenu(mm *MainMenu) { rdr.mm = mm }
 
 type Big struct {
@@ -242,6 +229,7 @@ func NewBulky() *Big {
 	}
 }
 
+// Render the current menu of the hooked main menu.
 func (rdr *Big) Render() error {
 	if rdr.mm == nil {
 		return Errors.MainMenuNotHooked
@@ -255,11 +243,12 @@ func (rdr *Big) Render() error {
 	addBlocks := func(lines [][]byte, str string) {
 		for end, r := range str {
 			cords, ok := rdr.renderBigCharMap[unicode.ToUpper(r)]
+
 			if !ok {
 				return
 			}
 			block := [][][]byte{}
-			for i := 0; i < 5; i++ {
+			for range 5 {
 				block = append(block, [][]byte{[]byte("  "), []byte("  "), []byte("  "), []byte("  "), []byte("  ")})
 			}
 			for _, cord := range cords {
@@ -289,6 +278,32 @@ func (rdr *Big) Render() error {
 		}
 
 		lines := [][]byte{{}, {}, {}, {}, {}}
+		switch alignment {
+		case Aligns.Left:
+			lines = [][]byte{{}, {}, {}, {}, {}}
+		case Aligns.Middle:
+			i := int((float64(x)/2)-(float64(len(tR)+len(atR)+len(vtR))/2)) * 12
+			if i > 0 {
+				lines = [][]byte{
+					[]byte("\033[" + strconv.Itoa(i) + "C"),
+					[]byte("\033[" + strconv.Itoa(i) + "C"),
+					[]byte("\033[" + strconv.Itoa(i) + "C"),
+					[]byte("\033[" + strconv.Itoa(i) + "C"),
+					[]byte("\033[" + strconv.Itoa(i) + "C"),
+				}
+			}
+		case Aligns.Right:
+			i := (x - (len(tR) + len(atR) + len(vtR))) * 12
+			if i > 0 {
+				lines = [][]byte{
+					[]byte("\033[" + strconv.Itoa(i) + "C"),
+					[]byte("\033[" + strconv.Itoa(i) + "C"),
+					[]byte("\033[" + strconv.Itoa(i) + "C"),
+					[]byte("\033[" + strconv.Itoa(i) + "C"),
+					[]byte("\033[" + strconv.Itoa(i) + "C"),
+				}
+			}
+		}
 
 		for i := range lines {
 			if isSelected {
@@ -333,57 +348,19 @@ func (rdr *Big) Render() error {
 	}
 
 	lines := append(getLines(rdr.mm.cur.Title, "", "", false, false, rdr.mm.cur.Align), slices.Concat(rdr.mm.cur.AccentColor, []byte(strings.Repeat("─", x*12)), Colors.Reset))
-	itemLen := 0
 
-	if len(rdr.mm.cur.Menus) > 0 {
-		for i, men := range rdr.mm.cur.Menus {
-			if itemLen+i < rdr.mm.cur.selected {
-				continue
-			}
-			lines = slices.Concat(lines, getLines(men.Title, " >", "", itemLen+i == rdr.mm.cur.selected, false, rdr.mm.cur.Align), [][]byte{{}})
-		}
-		itemLen += len(rdr.mm.cur.Menus)
-		if itemLen > rdr.mm.cur.selected {
-			lines = append(lines, [][]byte{{}, {}, {}, {}}...)
-		}
-	}
-
-	if len(rdr.mm.cur.Actions) > 0 {
-		for i, act := range rdr.mm.cur.Actions {
-			if itemLen+i < rdr.mm.cur.selected {
-				continue
-			}
-			lines = slices.Concat(lines, getLines(act.Name, "", "", itemLen+i == rdr.mm.cur.selected, false, rdr.mm.cur.Align), [][]byte{{}})
-		}
-		itemLen += len(rdr.mm.cur.Actions)
-		if itemLen > rdr.mm.cur.selected {
-			lines = append(lines, [][]byte{{}, {}, {}, {}}...)
-		}
-	}
-
-	if len(rdr.mm.cur.Lists) > 0 {
-		for i, lst := range rdr.mm.cur.Lists {
-			if itemLen+i < rdr.mm.cur.selected {
-				continue
-			}
-			lines = slices.Concat(lines, getLines(lst.Name, ": ", lst.Get(), itemLen+i == rdr.mm.cur.selected, lst.editing, rdr.mm.cur.Align), [][]byte{{}})
-		}
-		itemLen += len(rdr.mm.cur.Lists)
-		if itemLen > rdr.mm.cur.selected {
-			lines = append(lines, [][]byte{{}, {}, {}, {}}...)
-		}
-	}
-
-	if len(rdr.mm.cur.Options) > 0 {
-		for i, opt := range rdr.mm.cur.Options {
-			if itemLen+i < rdr.mm.cur.selected {
-				continue
-			}
-			lines = slices.Concat(lines, getLines(opt.Name, ": ", opt.value, itemLen+i == rdr.mm.cur.selected, opt.editing, rdr.mm.cur.Align), [][]byte{{}})
-		}
-		itemLen += len(rdr.mm.cur.Options)
-		if itemLen > rdr.mm.cur.selected {
-			lines = append(lines, [][]byte{{}, {}, {}, {}}...)
+	for i, itm := range rdr.mm.cur.Items[max(0, rdr.mm.cur.selected):] {
+		switch itm.Type() {
+		case "menu":
+			lines = slices.Concat(lines, getLines(itm.(*menu).Title, " >", "", i == 0, false, rdr.mm.cur.Align), [][]byte{{}})
+		case "action":
+			lines = slices.Concat(lines, getLines(itm.(*action).Name, "", "", i == 0, false, rdr.mm.cur.Align), [][]byte{{}})
+		case "list":
+			lines = slices.Concat(lines, getLines(itm.(*list).Name, ": ", itm.String(), i == 0, itm.(*list).editing, rdr.mm.cur.Align), [][]byte{{}})
+		case "option":
+			lines = slices.Concat(lines, getLines(itm.(*option).Name, ": ", itm.String(), i == 0, itm.(*option).editing, rdr.mm.cur.Align), [][]byte{{}})
+		default:
+			lines = append(lines, [][]byte{{}, {}, {}, {}, {}, {}}...)
 		}
 	}
 
@@ -391,7 +368,7 @@ func (rdr *Big) Render() error {
 	if rdr.mm.cur.back != nil {
 		backText = "Back"
 	}
-	lines = append(lines, getLines("", "< ", backText, itemLen == rdr.mm.cur.selected, itemLen == rdr.mm.cur.selected, rdr.mm.cur.Align)...)
+	lines = append(lines, getLines("", "< ", backText, rdr.mm.cur.selected >= len(rdr.mm.cur.Items), rdr.mm.cur.selected >= len(rdr.mm.cur.Items), rdr.mm.cur.Align)...)
 
 	if _, err := rdr.trm.Write(slices.Concat([]byte("\033[2J\033[0;0H"), bytes.Join(lines[:min(len(lines), y-1)], []byte("\r\n")), []byte("\r\n"+rdr.statusline[:min(len(rdr.statusline), y-1)]))); err != nil {
 		return err
@@ -399,11 +376,14 @@ func (rdr *Big) Render() error {
 	return nil
 }
 
+// Set the statusline, will be displayed on the next call to `rdr.Render`.
 func (rdr *Big) StatusLine(str string) { rdr.statusline = str }
 
+// Instantly clear the screen.
 func (rdr *Big) Clear() error {
 	_, err := rdr.trm.Write([]byte("\033[2J\033[0;0H"))
 	return err
 }
 
+// Hook a main menu to the renderer, this is required before calling `rdr.Render`
 func (rdr *Big) HookMainMenu(mm *MainMenu) { rdr.mm = mm }
