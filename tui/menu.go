@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"net"
 	"os"
 	"slices"
 	"strconv"
@@ -10,36 +11,29 @@ import (
 
 type (
 	item interface {
-		// Get the value as a string.
-		//
-		// If the value is not supported then the title or name is used.
+		// Get the name of the item.
 		String() string
-		// Get the value as a int.
+
+		// Get the value of the item.
 		//
-		// If the value is not supported then the title or name is used.
-		Int() (int, error)
-		// Get the value as a float.
-		//
-		// If the value is not supported then the title or name is used.
-		Float() (float64, error)
-		// Get the value as a bool.
-		//
-		// If the value is not supported then the title or name is used.
-		//
-		// It return true opon one of these values (case insensitive): `1`, `t`, `true`, `y`, `yes`
-		Bool() bool
+		// If the value is not implemented return a empty string.
+		Value() string
 
 		// Get the type of the item.
 		//
-		// This can be one of: `menu`, `action`, `list`, `option`
+		// This can be one of: `menu`, `text`, `action`, `list`, `digit`, `ipv4`, `ipv6`, `ipadd6`
 		Type() string
+
+		// Get the editing state of the item.
+		Editing() bool
 
 		enter() error
 	}
 
 	menu struct {
 		mm            *MainMenu
-		Title         string
+		name          string
+		BackText      string
 		Color         color
 		AccentColor   color
 		SelectColor   color
@@ -50,41 +44,61 @@ type (
 		selected      int
 		back          *menu
 	}
-
+	text struct {
+		mm      *MainMenu
+		name    string
+		editing bool
+		chars   charSet
+		value   string
+	}
 	action struct {
 		mm       *MainMenu
-		Name     string
+		name     string
 		callback func()
 	}
-
 	list struct {
 		mm       *MainMenu
-		Name     string
-		Allowed  []string
-		selected int
+		name     string
 		editing  bool
+		values   []string
+		selected int
 	}
-
-	option struct {
+	digit struct {
 		mm      *MainMenu
-		Name    string
-		Allowed string
-		value   string
+		name    string
 		editing bool
+		value   int
+		minimal int
+		maximal int
+	}
+	ipv4 struct {
+		mm       *MainMenu
+		name     string
+		editing  bool
+		value    net.IP
+		selected int
+	}
+	ipv6 struct {
+		mm       *MainMenu
+		name     string
+		editing  bool
+		value    net.IP
+		selected int
 	}
 )
 
-// Add a new menu to `m.Menus`.
+// Add a new menu to `m.Items`.
 //
 // Returns a pointer to the new menu.
 //
 // To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.SelectBGColor`, `tui.Defaults.ValueColor` before creating menus.
 //
 // To set default alignment set `tui.Defaults.Align` before creating menus.
-func (m *menu) NewMenu(title string) *menu {
+func (m *menu) NewMenu(name string) *menu {
 	mn := &menu{
 		mm:            m.mm,
-		Title:         title,
+		name:          name,
+		BackText:      "Back",
 		Color:         Defaults.Color,
 		AccentColor:   Defaults.AccentColor,
 		SelectColor:   Defaults.SelectColor,
@@ -99,25 +113,10 @@ func (m *menu) NewMenu(title string) *menu {
 	return mn
 }
 
-// Get the title as a string.
-func (m *menu) String() string { return m.Title }
-
-// Get the title as a int.
-func (m *menu) Int() (int, error) { return strconv.Atoi(m.Title) }
-
-// Get the title as a float.
-func (m *menu) Float() (float64, error) { return strconv.ParseFloat(m.Title, 64) }
-
-// Get the title as a bool.
-// It return true opon one of these values (case insensitive): 1, t, true, y, yes
-func (m *menu) Bool() bool {
-	return slices.Contains([]string{"1", "t", "true", "y", "yes"}, strings.ToLower(m.Title))
-}
-
-// Get the type of the item.
-//
-// Returns `menu`.
-func (m *menu) Type() string { return "menu" }
+func (m *menu) String() string { return m.name }
+func (m *menu) Value() string  { return "" }
+func (m *menu) Type() string   { return "menu" }
+func (m *menu) Editing() bool  { return false }
 
 func (m *menu) enter() error {
 	_ = m.mm.rdr.Render()
@@ -127,19 +126,19 @@ func (m *menu) enter() error {
 			return err
 		}
 
-		if slices.ContainsFunc(KeyBinds.Exit, func(v []byte) bool { return slices.Equal(v, in) }) {
+		if slices.ContainsFunc(KeyBinds.Exit, func(v keybind) bool { return slices.Equal(v, in) }) {
 			return Errors.exit
-		} else if slices.ContainsFunc(KeyBinds.Up, func(v []byte) bool { return slices.Equal(v, in) }) {
+		} else if slices.ContainsFunc(KeyBinds.Up, func(v keybind) bool { return slices.Equal(v, in) }) {
 			m.selected = max(m.selected-1, 0)
 			_ = m.mm.rdr.Render()
 			continue
 
-		} else if slices.ContainsFunc(KeyBinds.Down, func(v []byte) bool { return slices.Equal(v, in) }) {
+		} else if slices.ContainsFunc(KeyBinds.Down, func(v keybind) bool { return slices.Equal(v, in) }) {
 			m.selected = min(m.selected+1, len(m.Items))
 			_ = m.mm.rdr.Render()
 			continue
 
-		} else if slices.ContainsFunc(KeyBinds.Right, func(v []byte) bool { return slices.Equal(v, in) }) {
+		} else if slices.ContainsFunc(KeyBinds.Right, func(v keybind) bool { return slices.Equal(v, in) }) {
 			if m.selected < len(m.Items) && m.selected >= 0 {
 				if m.Items[m.selected].Type() == "menu" {
 					m.mm.cur = m.Items[m.selected].(*menu)
@@ -154,14 +153,14 @@ func (m *menu) enter() error {
 			m.mm.cur = m.back
 			return nil
 
-		} else if slices.ContainsFunc(KeyBinds.Left, func(v []byte) bool { return slices.Equal(v, in) }) {
+		} else if slices.ContainsFunc(KeyBinds.Left, func(v keybind) bool { return slices.Equal(v, in) }) {
 			if m.back == nil {
 				break
 			}
 			m.mm.cur = m.back
 			return nil
 
-		} else if i := slices.IndexFunc(KeyBinds.Numbers, func(v []byte) bool { return slices.Equal(v, in) }); i != -1 {
+		} else if i := slices.IndexFunc(KeyBinds.Numbers, func(v keybind) bool { return slices.Equal(v, in) }); i != -1 {
 			if i > len(m.Items) {
 				continue
 			}
@@ -185,7 +184,66 @@ func (m *menu) enter() error {
 	return nil
 }
 
-// Add a new action to `m.Actions`.
+// Add a new text to `m.Items`.
+//
+// Only characters in `chars` can be present in `value`.
+//
+// Returns a pointer to the new value.
+func (m *menu) NewText(name string, chars charSet, value string) *text {
+	opt := &text{
+		mm:      m.mm,
+		name:    name,
+		editing: false,
+		chars:   chars,
+		value:   "",
+	}
+	for _, char := range value {
+		if strings.ContainsAny(string(opt.chars), string(char)) {
+			opt.value += string(char)
+		}
+	}
+	m.Items = append(m.Items, opt)
+	return opt
+}
+
+func (v *text) String() string { return v.name }
+func (v *text) Value() string  { return v.value }
+func (v *text) Type() string   { return "text" }
+func (v *text) Editing() bool  { return v.editing }
+
+func (v *text) enter() error {
+	v.editing = true
+	_ = v.mm.rdr.Render()
+	for {
+		in := make([]byte, 3)
+		if _, err := os.Stdin.Read(in); err != nil {
+			v.editing = false
+			_ = v.mm.rdr.Render()
+			return err
+		}
+
+		if slices.ContainsFunc(KeyBinds.Exit, func(v keybind) bool { return slices.Equal(v, in) }) || slices.ContainsFunc(KeyBinds.Confirm, func(v keybind) bool { return slices.Equal(v, in) }) {
+			break
+		} else if slices.ContainsFunc(KeyBinds.Delete, func(v keybind) bool { return slices.Equal(v, in) }) {
+			if len(v.value) > 0 {
+				v.value = v.value[:len(v.value)-1]
+				_ = v.mm.rdr.Render()
+				continue
+			}
+		}
+
+		if strings.ContainsAny(string(v.chars), string(in[:])) {
+			v.value += string(bytes.Trim(in, "\x00")[:])
+			_ = v.mm.rdr.Render()
+		}
+	}
+
+	v.editing = false
+	_ = v.mm.rdr.Render()
+	return nil
+}
+
+// Add a new action to `m.Items`.
 //
 // `callback` is called when this actions is selected.
 //
@@ -193,68 +251,49 @@ func (m *menu) enter() error {
 func (m *menu) NewAction(name string, callback func()) *action {
 	act := &action{
 		mm:       m.mm,
-		Name:     name,
+		name:     name,
 		callback: callback,
 	}
 	m.Items = append(m.Items, act)
 	return act
 }
 
-// Get the name as a string.
-func (a *action) String() string { return a.Name }
-
-// Get the name as a int.
-func (a *action) Int() (int, error) { return strconv.Atoi(a.Name) }
-
-// Get the name as a float.
-func (a *action) Float() (float64, error) { return strconv.ParseFloat(a.Name, 64) }
-
-// Get the name as a bool.
-// It return true opon one of these values (case insensitive): 1, t, true, y, yes
-func (a *action) Bool() bool {
-	return slices.Contains([]string{"1", "t", "true", "y", "yes"}, strings.ToLower(a.Name))
-}
-
-// Get the type of the item.
-//
-// Returns `action`.
-func (a *action) Type() string { return "action" }
+func (a *action) String() string { return a.name }
+func (a *action) Value() string  { return "" }
+func (a *action) Type() string   { return "action" }
+func (a *action) Editing() bool  { return false }
 
 func (a *action) enter() error {
 	a.callback()
 	return Errors.exit
 }
 
-// Add a new list to `m.Lists`.
+// Add a new list to `m.Items`.
 //
-// Only options in `l.Allowed` can be selected.
+// Only options in `values` can be selected.
 //
 // Returns a pointer to the new list.
-func (m *menu) NewList(name string) *list {
+func (m *menu) NewList(name string, values []string) *list {
 	lst := &list{
 		mm:       m.mm,
-		Name:     name,
-		Allowed:  []string{"Yes", "No"},
+		name:     name,
+		editing:  false,
+		values:   values,
 		selected: 0,
 	}
 	m.Items = append(m.Items, lst)
 	return lst
 }
 
-// Get the value as a string.
-func (l *list) String() string { return l.Allowed[l.selected] }
-
-// Get the value as a int.
-func (l *list) Int() (int, error) { return strconv.Atoi(l.Allowed[l.selected]) }
-
-// Get the value as a float.
-func (l *list) Float() (float64, error) { return strconv.ParseFloat(l.Allowed[l.selected], 64) }
-
-// Get the value as a bool.
-// It return true opon one of these values (case insensitive): 1, t, true, y, yes
-func (l *list) Bool() bool {
-	return slices.Contains([]string{"1", "t", "true", "y", "yes"}, strings.ToLower(l.Allowed[l.selected]))
+func (l *list) String() string { return l.name }
+func (l *list) Value() string {
+	if l.selected < 0 || l.selected > len(l.values)-1 {
+		return ""
+	}
+	return l.values[l.selected]
 }
+func (l *list) Type() string  { return "list" }
+func (l *list) Editing() bool { return l.editing }
 
 func (l *list) enter() error {
 	l.editing = true
@@ -267,24 +306,24 @@ func (l *list) enter() error {
 			return err
 		}
 
-		if slices.ContainsFunc(KeyBinds.Exit, func(v []byte) bool { return slices.Equal(v, in) }) || slices.ContainsFunc(KeyBinds.Confirm, func(v []byte) bool { return slices.Equal(v, in) }) {
+		if slices.ContainsFunc(KeyBinds.Exit, func(v keybind) bool { return slices.Equal(v, in) }) || slices.ContainsFunc(KeyBinds.Confirm, func(v keybind) bool { return slices.Equal(v, in) }) {
 			break
-		} else if slices.ContainsFunc(KeyBinds.Up, func(v []byte) bool { return slices.Equal(v, in) }) {
+		} else if slices.ContainsFunc(KeyBinds.Up, func(v keybind) bool { return slices.Equal(v, in) }) {
 			l.selected = max(l.selected-1, 0)
 			_ = l.mm.rdr.Render()
 			continue
 
-		} else if slices.ContainsFunc(KeyBinds.Down, func(v []byte) bool { return slices.Equal(v, in) }) {
-			l.selected = min(l.selected+1, len(l.Allowed)-1)
+		} else if slices.ContainsFunc(KeyBinds.Down, func(v keybind) bool { return slices.Equal(v, in) }) {
+			l.selected = min(l.selected+1, len(l.values)-1)
 			_ = l.mm.rdr.Render()
 			continue
 
-		} else if slices.ContainsFunc(KeyBinds.Right, func(v []byte) bool { return slices.Equal(v, in) }) {
+		} else if slices.ContainsFunc(KeyBinds.Right, func(v keybind) bool { return slices.Equal(v, in) }) {
 			break
-		} else if slices.ContainsFunc(KeyBinds.Left, func(v []byte) bool { return slices.Equal(v, in) }) {
+		} else if slices.ContainsFunc(KeyBinds.Left, func(v keybind) bool { return slices.Equal(v, in) }) {
 			break
-		} else if i := slices.IndexFunc(KeyBinds.Numbers, func(v []byte) bool { return slices.Equal(v, in) }); i != -1 {
-			if i > len(l.Allowed)-1 {
+		} else if i := slices.IndexFunc(KeyBinds.Numbers, func(v keybind) bool { return slices.Equal(v, in) }); i != -1 {
+			if i > len(l.values)-1 {
 				continue
 			}
 			l.selected = i
@@ -292,7 +331,7 @@ func (l *list) enter() error {
 			continue
 		}
 
-		for i, str := range l.Allowed {
+		for i, str := range l.values {
 			if !strings.HasPrefix(strings.ToLower(str), string(bytes.Trim(in, "\x00")[:])) {
 				continue
 			}
@@ -301,7 +340,7 @@ func (l *list) enter() error {
 			continue
 		}
 
-		for i, str := range l.Allowed {
+		for i, str := range l.values {
 			if !strings.HasPrefix(strings.ToLower(str), strings.ToLower(string(bytes.Trim(in, "\x00")[:]))) {
 				continue
 			}
@@ -315,76 +354,214 @@ func (l *list) enter() error {
 	return nil
 }
 
-// Get the type of the item.
+// Add a new digit to `m.Items`.
 //
-// Returns `list`.
-func (l *list) Type() string { return "list" }
-
-// Add a new option to `m.Options`.
+// `value` can only be between or equal to `d.minimal` and `d.maximal`.
 //
-// Only characters in `o.Allowed` can be entered.
-// `value` is the default value and is not checked against `o.Allowed`.
-//
-// Returns a pointer to the new option.
-func (m *menu) NewOption(name string, value string) *option {
-	opt := &option{
+// Returns a pointer to the new list.
+func (m *menu) NewDigit(name string, value int, minimal int, maximal int) *digit {
+	dgt := &digit{
 		mm:      m.mm,
-		Name:    name,
-		Allowed: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
-		value:   value,
+		name:    name,
+		editing: false,
+		value:   min(max(value, minimal), maximal),
+		minimal: minimal,
+		maximal: maximal,
 	}
-	m.Items = append(m.Items, opt)
-	return opt
+	m.Items = append(m.Items, dgt)
+	return dgt
 }
 
-// Get the value as a string.
-func (o *option) String() string { return o.value }
+func (d *digit) String() string { return d.name }
+func (d *digit) Value() string  { return strconv.Itoa(d.value) }
+func (d *digit) Type() string   { return "digit" }
+func (d *digit) Editing() bool  { return d.editing }
 
-// Get the value as a int.
-func (o *option) Int() (int, error) { return strconv.Atoi(o.value) }
-
-// Get the value as a float.
-func (o *option) Float() (float64, error) { return strconv.ParseFloat(o.value, 64) }
-
-// Get the value as a bool.
-// It return true opon one of these values (case insensitive): 1, t, true, y, yes
-func (o *option) Bool() bool {
-	return slices.Contains([]string{"1", "t", "true", "y", "yes"}, strings.ToLower(o.value))
-}
-
-// Get the type of the item.
-//
-// Returns `option`.
-func (o *option) Type() string { return "option" }
-
-func (o *option) enter() error {
-	o.editing = true
-	_ = o.mm.rdr.Render()
+func (d *digit) enter() error {
+	d.editing = true
+	_ = d.mm.rdr.Render()
 	for {
 		in := make([]byte, 3)
 		if _, err := os.Stdin.Read(in); err != nil {
-			o.editing = false
-			_ = o.mm.rdr.Render()
+			d.editing = false
+			_ = d.mm.rdr.Render()
 			return err
 		}
 
-		if slices.ContainsFunc(KeyBinds.Exit, func(v []byte) bool { return slices.Equal(v, in) }) || slices.ContainsFunc(KeyBinds.Confirm, func(v []byte) bool { return slices.Equal(v, in) }) {
+		if slices.ContainsFunc(KeyBinds.Exit, func(v keybind) bool { return slices.Equal(v, in) }) || slices.ContainsFunc(KeyBinds.Confirm, func(v keybind) bool { return slices.Equal(v, in) }) {
 			break
-		} else if slices.ContainsFunc(KeyBinds.Delete, func(v []byte) bool { return slices.Equal(v, in) }) {
-			if len(o.value) > 0 {
-				o.value = o.value[:len(o.value)-1]
-				_ = o.mm.rdr.Render()
+		} else if slices.ContainsFunc(KeyBinds.Up, func(v keybind) bool { return slices.Equal(v, in) }) {
+			d.value = min(d.value+1, d.maximal)
+			_ = d.mm.rdr.Render()
+			continue
+
+		} else if slices.ContainsFunc(KeyBinds.Down, func(v keybind) bool { return slices.Equal(v, in) }) {
+			d.value = max(d.value-1, d.minimal)
+			_ = d.mm.rdr.Render()
+			continue
+
+		} else if slices.ContainsFunc(KeyBinds.Delete, func(v keybind) bool { return slices.Equal(v, in) }) {
+			vStr := strconv.Itoa(d.value)
+			if len(vStr) > 0 {
+				if len(strings.Replace(vStr, "-", "", 1)) == 1 {
+					d.value = min(max(0, d.minimal), d.maximal)
+					_ = d.mm.rdr.Render()
+					continue
+				}
+				v, err := strconv.Atoi(vStr[:len(vStr)-1])
+				if err != nil {
+					d.editing = false
+					_ = d.mm.rdr.Render()
+					return err
+				}
+				d.value = min(max(v, d.minimal), d.maximal)
+				_ = d.mm.rdr.Render()
 				continue
 			}
 		}
 
-		if strings.ContainsAny(o.Allowed, string(in[:])) {
-			o.value += string(bytes.Trim(in, "\x00")[:])
-			_ = o.mm.rdr.Render()
+		if strings.ContainsAny(string(CharSets.Digits), string(in[:])) {
+			v, err := strconv.Atoi(strconv.Itoa(d.value) + string(bytes.Trim(in, "\x00")[:]))
+			if err != nil {
+				d.editing = false
+				_ = d.mm.rdr.Render()
+				return err
+			}
+			d.value = min(max(v, d.minimal), d.maximal)
+			_ = d.mm.rdr.Render()
 		}
 	}
+	d.editing = false
+	_ = d.mm.rdr.Render()
+	return nil
+}
 
-	o.editing = false
-	_ = o.mm.rdr.Render()
+// Add a new ipv4 to `m.Items`.
+//
+// `value` must be a valid IPv4 address.
+//
+// Returns a pointer to the new list.
+func (m *menu) NewIPv4(name string, value string) *ipv4 {
+	ip4 := &ipv4{
+		mm:       m.mm,
+		name:     name,
+		value:    net.ParseIP(value).To4(),
+		selected: 0,
+		editing:  false,
+	}
+	if ip4.value == nil {
+		ip4.value = net.ParseIP("0.0.0.0").To4()
+	}
+	m.Items = append(m.Items, ip4)
+	return ip4
+}
+
+func (a *ipv4) String() string { return a.name }
+func (a *ipv4) Value() string  { return a.value.String() }
+func (a *ipv4) Type() string   { return "ipv4" }
+func (a *ipv4) Editing() bool  { return a.editing }
+
+func (a *ipv4) enter() error {
+	a.editing = true
+	_ = a.mm.rdr.Render()
+	for {
+		in := make([]byte, 3)
+		if _, err := os.Stdin.Read(in); err != nil {
+			a.editing = false
+			_ = a.mm.rdr.Render()
+			return err
+		}
+
+		if slices.ContainsFunc(KeyBinds.Exit, func(v keybind) bool { return slices.Equal(v, in) }) || slices.ContainsFunc(KeyBinds.Confirm, func(v keybind) bool { return slices.Equal(v, in) }) {
+			break
+		} else if slices.ContainsFunc(KeyBinds.Right, func(v keybind) bool { return slices.Equal(v, in) }) {
+			a.selected = min(a.selected+1, 3)
+			_ = a.mm.rdr.Render()
+			continue
+
+		} else if slices.ContainsFunc(KeyBinds.Left, func(v keybind) bool { return slices.Equal(v, in) }) {
+			a.selected = max(a.selected-1, 0)
+			_ = a.mm.rdr.Render()
+			continue
+
+		} else if slices.ContainsFunc(KeyBinds.Up, func(v keybind) bool { return slices.Equal(v, in) }) {
+			a.value[a.selected] = a.value[a.selected] + 1
+			_ = a.mm.rdr.Render()
+			continue
+
+		} else if slices.ContainsFunc(KeyBinds.Down, func(v keybind) bool { return slices.Equal(v, in) }) {
+			a.value[a.selected] = a.value[a.selected] - 1
+			_ = a.mm.rdr.Render()
+			continue
+
+		}
+	}
+	a.editing = false
+	_ = a.mm.rdr.Render()
+	return nil
+}
+
+// Add a new ipv6 to `m.Items`.
+//
+// `value` must be a valid IPv4 address.
+//
+// Returns a pointer to the new list.
+func (m *menu) NewIPv6(name string, value string) *ipv6 {
+	ip4 := &ipv6{
+		mm:       m.mm,
+		name:     name,
+		value:    net.ParseIP(value).To16(),
+		selected: 0,
+		editing:  false,
+	}
+	if ip4.value == nil {
+		ip4.value = net.ParseIP("::").To16()
+	}
+	m.Items = append(m.Items, ip4)
+	return ip4
+}
+
+func (a *ipv6) String() string { return a.name }
+func (a *ipv6) Value() string  { return a.value.String() }
+func (a *ipv6) Type() string   { return "ipv6" }
+func (a *ipv6) Editing() bool  { return a.editing }
+
+func (a *ipv6) enter() error {
+	a.editing = true
+	_ = a.mm.rdr.Render()
+	for {
+		in := make([]byte, 3)
+		if _, err := os.Stdin.Read(in); err != nil {
+			a.editing = false
+			_ = a.mm.rdr.Render()
+			return err
+		}
+
+		if slices.ContainsFunc(KeyBinds.Exit, func(v keybind) bool { return slices.Equal(v, in) }) || slices.ContainsFunc(KeyBinds.Confirm, func(v keybind) bool { return slices.Equal(v, in) }) {
+			break
+		} else if slices.ContainsFunc(KeyBinds.Right, func(v keybind) bool { return slices.Equal(v, in) }) {
+			a.selected = min(a.selected+1, 15)
+			_ = a.mm.rdr.Render()
+			continue
+
+		} else if slices.ContainsFunc(KeyBinds.Left, func(v keybind) bool { return slices.Equal(v, in) }) {
+			a.selected = max(a.selected-1, 0)
+			_ = a.mm.rdr.Render()
+			continue
+
+		} else if slices.ContainsFunc(KeyBinds.Up, func(v keybind) bool { return slices.Equal(v, in) }) {
+			a.value[a.selected] = a.value[a.selected] + 1
+			_ = a.mm.rdr.Render()
+			continue
+
+		} else if slices.ContainsFunc(KeyBinds.Down, func(v keybind) bool { return slices.Equal(v, in) }) {
+			a.value[a.selected] = a.value[a.selected] - 1
+			_ = a.mm.rdr.Render()
+			continue
+
+		}
+	}
+	a.editing = false
+	_ = a.mm.rdr.Render()
 	return nil
 }

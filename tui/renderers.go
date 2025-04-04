@@ -15,9 +15,9 @@ import (
 type renderer interface {
 	// Render the current menu of the hooked main menu.
 	Render() error
-	// Set the statusline, will be displayed on the next call to `rdr.Render`.
+	// Set the statusline.
 	StatusLine(string)
-	// Instantly clear the screen.
+	// Clear the screen.
 	Clear() error
 	// Hook a main menu to the renderer, this is required before calling `rdr.Render`
 	HookMainMenu(*MainMenu)
@@ -51,7 +51,7 @@ func (rdr *Basic) Render() error {
 		return err
 	}
 
-	getLine := func(text string, accentText string, valueText string, isSelected bool, isEditing bool, alignment align) []byte {
+	getLine := func(text string, accentText string, valueText string, isSelected bool, isEditing bool) []byte {
 		tR, atR, vtR := []rune(text), []rune(accentText), []rune(valueText)
 		if len(tR)+len(atR)+len(vtR) > x {
 			if len(vtR) > 3 {
@@ -65,7 +65,7 @@ func (rdr *Basic) Render() error {
 		}
 
 		line := []byte{}
-		switch alignment {
+		switch rdr.mm.cur.Align {
 		case Aligns.Left:
 			line = []byte{}
 		case Aligns.Middle:
@@ -90,28 +90,20 @@ func (rdr *Basic) Render() error {
 		return slices.Concat(line, rdr.mm.cur.Color, []byte(string(tR)), Colors.Reset, rdr.mm.cur.AccentColor, []byte(string(atR)), Colors.Reset, rdr.mm.cur.ValueColor, []byte(string(vtR)), Colors.Reset)
 	}
 
-	lines := append([][]byte{getLine(rdr.mm.cur.Title, "", "", false, false, rdr.mm.cur.Align)}, slices.Concat(rdr.mm.cur.AccentColor, []byte(strings.Repeat("─", x)), Colors.Reset))
+	lines := append([][]byte{getLine(rdr.mm.cur.String(), "", "", false, false)}, slices.Concat(rdr.mm.cur.AccentColor, []byte(strings.Repeat("─", x)), Colors.Reset))
 
 	for i, itm := range rdr.mm.cur.Items {
 		switch itm.Type() {
 		case "menu":
-			lines = append(lines, getLine(itm.(*menu).Title, " 🞂", "", rdr.mm.cur.selected == i, false, rdr.mm.cur.Align))
-		case "action":
-			lines = append(lines, getLine(itm.(*action).Name, "", "", rdr.mm.cur.selected == i, false, rdr.mm.cur.Align))
-		case "list":
-			lines = append(lines, getLine(itm.(*list).Name, " ▷ ", itm.String(), rdr.mm.cur.selected == i, itm.(*list).editing, rdr.mm.cur.Align))
-		case "option":
-			lines = append(lines, getLine(itm.(*option).Name, " ▷ ", itm.String(), rdr.mm.cur.selected == i, itm.(*option).editing, rdr.mm.cur.Align))
+			lines = append(lines, getLine(itm.String(), " 🞂", "", rdr.mm.cur.selected == i, false))
+		case "text", "list", "digit", "ipv4", "ipv6":
+			lines = append(lines, getLine(itm.String(), " ▷ ", itm.Value(), rdr.mm.cur.selected == i, itm.Editing()))
 		default:
-			lines = append(lines, []byte{})
+			lines = append(lines, getLine(itm.String(), "", "", rdr.mm.cur.selected == i, itm.Editing()))
 		}
 	}
 
-	backText := "Exit"
-	if rdr.mm.cur.back != nil {
-		backText = "Back"
-	}
-	lines = append(lines, getLine("", "◀ ", backText, rdr.mm.cur.selected >= len(rdr.mm.cur.Items), rdr.mm.cur.selected >= len(rdr.mm.cur.Items), rdr.mm.cur.Align))
+	lines = append(lines, getLine("", "◀ ", rdr.mm.cur.BackText, rdr.mm.cur.selected >= len(rdr.mm.cur.Items), rdr.mm.cur.selected >= len(rdr.mm.cur.Items)))
 
 	if _, err := rdr.trm.Write(slices.Concat([]byte("\033[2J\033[0;0H"), bytes.Join(lines[:min(len(lines), y-1)], []byte("\r\n")), []byte("\r\n"+rdr.statusline[:min(len(rdr.statusline), y-1)]))); err != nil {
 		return err
@@ -119,10 +111,10 @@ func (rdr *Basic) Render() error {
 	return nil
 }
 
-// Set the statusline, will be displayed on the next call to `rdr.Render`.
+// Set the statusline.
 func (rdr *Basic) StatusLine(str string) { rdr.statusline = str }
 
-// Instantly clear the screen.
+// Clear the screen.
 func (rdr *Basic) Clear() error {
 	_, err := rdr.trm.Write([]byte("\033[2J\033[0;0H"))
 	return err
@@ -194,37 +186,37 @@ func NewBulky() *Big {
 			'9':  {{1, 0}, {2, 0}, {3, 0}, {0, 1}, {4, 1}, {1, 2}, {2, 2}, {3, 2}, {4, 2}, {4, 3}, {1, 4}, {2, 4}, {3, 4}},
 			' ':  {},
 			'!':  {{2, 0}, {2, 1}, {2, 2}, {2, 4}},
-			'?':  {{1, 0}, {2, 0}, {0, 1}, {3, 1}, {2, 2}, {2, 4}},
-			'@':  {{3, 0}, {1, 1}, {4, 1}, {0, 2}, {2, 2}, {4, 2}, {0, 3}, {1, 3}, {2, 3}, {4, 3}, {0, 4}, {2, 4}, {3, 4}},
+			'"':  {{0, 0}, {1, 0}, {3, 0}, {4, 0}, {0, 1}, {1, 1}, {3, 1}, {4, 1}, {1, 2}, {4, 2}, {0, 3}, {3, 3}},
 			'#':  {{1, 0}, {3, 0}, {0, 1}, {1, 1}, {2, 1}, {3, 1}, {4, 1}, {1, 2}, {3, 2}, {0, 3}, {1, 3}, {2, 3}, {3, 3}, {4, 3}, {1, 4}, {3, 4}},
 			'$':  {{1, 0}, {2, 0}, {3, 0}, {4, 0}, {0, 1}, {2, 1}, {0, 2}, {1, 2}, {2, 2}, {3, 2}, {2, 3}, {4, 3}, {0, 4}, {1, 4}, {2, 4}, {3, 4}},
 			'%':  {{0, 0}, {1, 0}, {4, 0}, {0, 1}, {1, 1}, {3, 1}, {2, 2}, {1, 3}, {3, 3}, {4, 3}, {0, 4}, {3, 4}, {4, 4}},
-			'^':  {{2, 0}, {1, 1}, {3, 1}, {0, 2}, {4, 2}},
 			'&':  {{1, 0}, {0, 1}, {2, 1}, {1, 2}, {2, 2}, {4, 2}, {0, 3}, {3, 3}, {1, 4}, {2, 4}, {4, 4}},
-			'=':  {{0, 1}, {1, 1}, {2, 1}, {3, 1}, {4, 1}, {0, 3}, {1, 3}, {2, 3}, {3, 3}, {4, 3}},
-			'*':  {{1, 1}, {3, 1}, {2, 2}, {1, 3}, {3, 3}},
-			'+':  {{2, 1}, {1, 2}, {2, 2}, {3, 2}, {2, 3}},
-			'-':  {{1, 2}, {2, 2}, {3, 2}},
-			'_':  {{0, 4}, {1, 4}, {2, 4}, {3, 4}, {4, 4}},
+			'\'': {{1, 0}, {2, 0}, {1, 1}, {2, 1}, {2, 2}, {1, 3}},
 			'(':  {{2, 0}, {1, 1}, {1, 2}, {1, 3}, {2, 4}},
 			')':  {{2, 0}, {3, 1}, {3, 2}, {3, 3}, {2, 4}},
-			'{':  {{2, 0}, {1, 1}, {2, 2}, {1, 3}, {2, 4}},
-			'}':  {{2, 0}, {3, 1}, {2, 2}, {3, 3}, {2, 4}},
-			'[':  {{1, 0}, {2, 0}, {1, 1}, {1, 2}, {1, 3}, {1, 4}, {2, 4}},
-			']':  {{2, 0}, {3, 0}, {3, 1}, {3, 2}, {3, 3}, {2, 4}, {3, 4}},
-			'\'': {{1, 0}, {2, 0}, {1, 1}, {2, 1}, {2, 2}, {1, 3}},
-			'"':  {{0, 0}, {1, 0}, {3, 0}, {4, 0}, {0, 1}, {1, 1}, {3, 1}, {4, 1}, {1, 2}, {4, 2}, {0, 3}, {3, 3}},
+			'*':  {{1, 1}, {3, 1}, {2, 2}, {1, 3}, {3, 3}},
+			'+':  {{2, 1}, {1, 2}, {2, 2}, {3, 2}, {2, 3}},
+			',':  {{2, 3}, {1, 4}, {2, 4}},
+			'-':  {{1, 2}, {2, 2}, {3, 2}},
+			'.':  {{1, 3}, {2, 3}, {1, 4}, {2, 4}},
+			'/':  {{4, 0}, {3, 1}, {2, 2}, {1, 3}, {0, 4}},
 			':':  {{1, 0}, {2, 0}, {1, 1}, {2, 1}, {1, 3}, {2, 3}, {1, 4}, {2, 4}},
 			';':  {{1, 0}, {2, 0}, {1, 1}, {2, 1}, {2, 3}, {1, 4}, {2, 4}},
-			',':  {{2, 3}, {1, 4}, {2, 4}},
-			'.':  {{1, 3}, {2, 3}, {1, 4}, {2, 4}},
-			'`':  {{1, 0}, {2, 0}, {2, 1}},
-			'~':  {{1, 1}, {0, 2}, {2, 2}, {4, 2}, {3, 3}},
-			'\\': {{0, 0}, {1, 1}, {2, 2}, {3, 3}, {4, 4}},
-			'/':  {{4, 0}, {3, 1}, {2, 2}, {1, 3}, {0, 4}},
-			'|':  {{2, 0}, {2, 1}, {2, 2}, {2, 3}, {2, 4}},
 			'<':  {{3, 0}, {4, 0}, {1, 1}, {2, 1}, {0, 2}, {1, 3}, {2, 3}, {3, 4}, {4, 4}},
+			'=':  {{0, 1}, {1, 1}, {2, 1}, {3, 1}, {4, 1}, {0, 3}, {1, 3}, {2, 3}, {3, 3}, {4, 3}},
 			'>':  {{0, 0}, {1, 0}, {2, 1}, {3, 1}, {4, 2}, {2, 3}, {3, 3}, {0, 4}, {1, 4}},
+			'?':  {{1, 0}, {2, 0}, {0, 1}, {3, 1}, {2, 2}, {2, 4}},
+			'@':  {{3, 0}, {1, 1}, {4, 1}, {0, 2}, {2, 2}, {4, 2}, {0, 3}, {1, 3}, {2, 3}, {4, 3}, {0, 4}, {2, 4}, {3, 4}},
+			'[':  {{1, 0}, {2, 0}, {1, 1}, {1, 2}, {1, 3}, {1, 4}, {2, 4}},
+			'\\': {{0, 0}, {1, 1}, {2, 2}, {3, 3}, {4, 4}},
+			']':  {{2, 0}, {3, 0}, {3, 1}, {3, 2}, {3, 3}, {2, 4}, {3, 4}},
+			'^':  {{2, 0}, {1, 1}, {3, 1}, {0, 2}, {4, 2}},
+			'_':  {{0, 4}, {1, 4}, {2, 4}, {3, 4}, {4, 4}},
+			'`':  {{1, 0}, {2, 0}, {2, 1}},
+			'{':  {{2, 0}, {1, 1}, {2, 2}, {1, 3}, {2, 4}},
+			'|':  {{2, 0}, {2, 1}, {2, 2}, {2, 3}, {2, 4}},
+			'}':  {{2, 0}, {3, 1}, {2, 2}, {3, 3}, {2, 4}},
+			'~':  {{1, 1}, {0, 2}, {2, 2}, {4, 2}, {3, 3}},
 		},
 	}
 }
@@ -264,7 +256,7 @@ func (rdr *Big) Render() error {
 		}
 	}
 
-	getLines := func(text string, accentText string, valueText string, isSelected bool, isEditing bool, alignment align) [][]byte {
+	getLines := func(text string, accentText string, valueText string, isSelected bool, isEditing bool) [][]byte {
 		tR, atR, vtR := []rune(text), []rune(accentText), []rune(valueText)
 		if len(tR)+len(atR)+len(vtR) > x {
 			if len(vtR) > 3 {
@@ -278,7 +270,7 @@ func (rdr *Big) Render() error {
 		}
 
 		lines := [][]byte{{}, {}, {}, {}, {}}
-		switch alignment {
+		switch rdr.mm.cur.Align {
 		case Aligns.Left:
 			lines = [][]byte{{}, {}, {}, {}, {}}
 		case Aligns.Middle:
@@ -347,28 +339,20 @@ func (rdr *Big) Render() error {
 		return lines
 	}
 
-	lines := append(getLines(rdr.mm.cur.Title, "", "", false, false, rdr.mm.cur.Align), slices.Concat(rdr.mm.cur.AccentColor, []byte(strings.Repeat("─", x*12)), Colors.Reset))
+	lines := append(getLines(rdr.mm.cur.String(), "", "", false, false), slices.Concat(rdr.mm.cur.AccentColor, []byte(strings.Repeat("─", x*12)), Colors.Reset))
 
 	for i, itm := range rdr.mm.cur.Items[max(0, rdr.mm.cur.selected):] {
 		switch itm.Type() {
 		case "menu":
-			lines = slices.Concat(lines, getLines(itm.(*menu).Title, " >", "", i == 0, false, rdr.mm.cur.Align), [][]byte{{}})
-		case "action":
-			lines = slices.Concat(lines, getLines(itm.(*action).Name, "", "", i == 0, false, rdr.mm.cur.Align), [][]byte{{}})
-		case "list":
-			lines = slices.Concat(lines, getLines(itm.(*list).Name, ": ", itm.String(), i == 0, itm.(*list).editing, rdr.mm.cur.Align), [][]byte{{}})
-		case "option":
-			lines = slices.Concat(lines, getLines(itm.(*option).Name, ": ", itm.String(), i == 0, itm.(*option).editing, rdr.mm.cur.Align), [][]byte{{}})
+			lines = slices.Concat(lines, getLines(itm.String(), " >", "", i == 0, false), [][]byte{{}})
+		case "text", "list", "digit", "ipv4", "ipv6":
+			lines = slices.Concat(lines, getLines(itm.String(), ": ", itm.Value(), i == 0, itm.Editing()), [][]byte{{}})
 		default:
-			lines = append(lines, [][]byte{{}, {}, {}, {}, {}, {}}...)
+			lines = slices.Concat(lines, getLines(itm.String(), "", "", i == 0, false), [][]byte{{}})
 		}
 	}
 
-	backText := "Exit"
-	if rdr.mm.cur.back != nil {
-		backText = "Back"
-	}
-	lines = append(lines, getLines("", "< ", backText, rdr.mm.cur.selected >= len(rdr.mm.cur.Items), rdr.mm.cur.selected >= len(rdr.mm.cur.Items), rdr.mm.cur.Align)...)
+	lines = append(lines, getLines("", "< ", rdr.mm.cur.BackText, rdr.mm.cur.selected >= len(rdr.mm.cur.Items), rdr.mm.cur.selected >= len(rdr.mm.cur.Items))...)
 
 	if _, err := rdr.trm.Write(slices.Concat([]byte("\033[2J\033[0;0H"), bytes.Join(lines[:min(len(lines), y-1)], []byte("\r\n")), []byte("\r\n"+rdr.statusline[:min(len(rdr.statusline), y-1)]))); err != nil {
 		return err
@@ -376,10 +360,10 @@ func (rdr *Big) Render() error {
 	return nil
 }
 
-// Set the statusline, will be displayed on the next call to `rdr.Render`.
+// Set the statusline.
 func (rdr *Big) StatusLine(str string) { rdr.statusline = str }
 
-// Instantly clear the screen.
+// Clear the screen.
 func (rdr *Big) Clear() error {
 	_, err := rdr.trm.Write([]byte("\033[2J\033[0;0H"))
 	return err

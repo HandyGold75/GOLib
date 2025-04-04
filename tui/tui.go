@@ -9,7 +9,7 @@ import (
 )
 
 type (
-	tuiErrors struct{ NotATerm, TuiStarted, TuiNotStarted, MainMenuNotHooked, newCurrent, exit error }
+	tuiErrors struct{ NotATerm, TuiStarted, TuiNotStarted, MainMenuNotHooked, exit error }
 
 	colors struct {
 		Black, Red, Green, Yellow, Blue, Magenta, Cyan, White                                                                 color
@@ -28,7 +28,11 @@ type (
 		Align                                                      align
 	}
 
-	keybinds struct{ Up, Down, Right, Left, Exit, Numbers, Confirm, Delete [][]byte }
+	keybinds struct{ Up, Down, Right, Left, Exit, Numbers, Confirm, Delete []keybind }
+	keybind  []byte
+
+	charSets struct{ Letters, Digits, WhiteSpace, Punctuation, General charSet }
+	charSet  string
 
 	MainMenu struct {
 		Menu   *menu
@@ -104,14 +108,22 @@ var (
 	}
 
 	KeyBinds = keybinds{
-		Up:      [][]byte{{119, 0, 0}, {107, 0, 0}, {27, 91, 65}},                                                                                 // W, K, UP
-		Down:    [][]byte{{115, 0, 0}, {106, 0, 0}, {27, 91, 66}},                                                                                 // S, J, DOWN
-		Right:   [][]byte{{100, 0, 0}, {108, 0, 0}, {27, 91, 67}, {13, 0, 0}},                                                                     // D, L, RIGHT, RETURN
-		Left:    [][]byte{{97, 0, 0}, {104, 0, 0}, {27, 91, 68}, {113, 0, 0}, {127, 0, 0}},                                                        // A, H, LEFT, Q, BACKSPACE
-		Exit:    [][]byte{{27, 0, 0}, {3, 0, 0}, {4, 0, 0}},                                                                                       // ESC, CTRL_C, CTRL_D,
-		Numbers: [][]byte{{48, 0, 0}, {49, 0, 0}, {50, 0, 0}, {51, 0, 0}, {52, 0, 0}, {53, 0, 0}, {54, 0, 0}, {55, 0, 0}, {56, 0, 0}, {57, 0, 0}}, // 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
-		Confirm: [][]byte{{13, 0, 0}},                                                                                                             // RETURN
-		Delete:  [][]byte{{127, 0, 0}, {27, 91, 51}},                                                                                              // BACKSPACE, DEL
+		Up:      []keybind{{119, 0, 0}, {107, 0, 0}, {27, 91, 65}, {43, 0, 0}},                                                                     // W, K, UP
+		Down:    []keybind{{115, 0, 0}, {106, 0, 0}, {27, 91, 66}, {45, 0, 0}},                                                                     // S, J, DOWN
+		Right:   []keybind{{100, 0, 0}, {108, 0, 0}, {27, 91, 67}, {13, 0, 0}},                                                                     // D, L, RIGHT, RETURN
+		Left:    []keybind{{97, 0, 0}, {104, 0, 0}, {27, 91, 68}, {113, 0, 0}, {127, 0, 0}},                                                        // A, H, LEFT, Q, BACKSPACE
+		Exit:    []keybind{{27, 0, 0}, {3, 0, 0}, {4, 0, 0}},                                                                                       // ESC, CTRL_C, CTRL_D,
+		Numbers: []keybind{{48, 0, 0}, {49, 0, 0}, {50, 0, 0}, {51, 0, 0}, {52, 0, 0}, {53, 0, 0}, {54, 0, 0}, {55, 0, 0}, {56, 0, 0}, {57, 0, 0}}, // 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
+		Confirm: []keybind{{13, 0, 0}},                                                                                                             // RETURN
+		Delete:  []keybind{{127, 0, 0}, {27, 91, 51}},                                                                                              // BACKSPACE, DEL
+	}
+
+	CharSets = charSets{
+		Letters:     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+		Digits:      "0123456789",
+		WhiteSpace:  " ",
+		Punctuation: "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~",
+		General:     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~",
 	}
 )
 
@@ -124,14 +136,15 @@ var (
 // To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.SelectBGColor`, `tui.Defaults.ValueColor` before creating menus.
 //
 // To set default alignment set `tui.Defaults.Align` before creating menus.
-func NewMenu(title string, rdr renderer) (*MainMenu, error) {
+func NewMenu(name string, rdr renderer) (*MainMenu, error) {
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
 		return nil, Errors.NotATerm
 	}
 
 	mn := &menu{
 		mm:            nil,
-		Title:         title,
+		name:          name,
+		BackText:      "Exit",
 		Color:         Defaults.Color,
 		AccentColor:   Defaults.AccentColor,
 		SelectColor:   Defaults.SelectColor,
@@ -250,22 +263,19 @@ func main() {
 	}
 	defer func() { _ = term.Restore(int(os.Stdin.Fd()), oldState) }()
 
-	mn, err := NewMenuBulky("Some Title")
+	mn, err := NewMenuBasic("Some Title")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	mn1 := mn.Menu.NewMenu("A Sxb menu")
-	mn1.NewOption("some Option 1", "val")
-	mn2 := mn.Menu.NewMenu("Antoher Sub menu")
-	mn2.NewOption("some Option 2", "val")
-	lst := mn.Menu.NewList("some List")
-	lst.Allowed = append(lst.Allowed, "Maybe")
-	mn.Menu.NewOption("some Option a very", "someverutylongoon")
-	mn.Menu.NewOption("somemore Option", "!!")
-	mn.Menu.NewAction("a Action", func() {})
-	mn.Menu.NewAction("evenmore Action", func() {})
+	_ = mn.Menu.NewMenu("A menu")
+	mn.Menu.NewText("A text", CharSets.General, "val")
+	mn.Menu.NewAction("A action", func() {})
+	mn.Menu.NewList("A list", []string{"Yes", "No", "Maybe"})
+	mn.Menu.NewDigit("A digit", 99, -128, 127)
+	mn.Menu.NewIPv4("A ipv4", "127.0.0.1")
+	mn.Menu.NewIPv6("A ipv4", "::1")
 
 	if err := mn.Start(oldState); err != nil {
 		fmt.Println(err)
