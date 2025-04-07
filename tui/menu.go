@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/hex"
 	"net"
 	"os"
 	"slices"
@@ -132,12 +133,10 @@ func (m *menu) enter() error {
 			m.selected = max(m.selected-1, 0)
 			_ = m.mm.rdr.Render()
 			continue
-
 		} else if slices.ContainsFunc(KeyBinds.Down, func(v keybind) bool { return slices.Equal(v, in) }) {
 			m.selected = min(m.selected+1, len(m.Items))
 			_ = m.mm.rdr.Render()
 			continue
-
 		} else if slices.ContainsFunc(KeyBinds.Right, func(v keybind) bool { return slices.Equal(v, in) }) {
 			if m.selected < len(m.Items) && m.selected >= 0 {
 				if m.Items[m.selected].Type() == "menu" {
@@ -152,14 +151,12 @@ func (m *menu) enter() error {
 			}
 			m.mm.cur = m.back
 			return nil
-
 		} else if slices.ContainsFunc(KeyBinds.Left, func(v keybind) bool { return slices.Equal(v, in) }) {
 			if m.back == nil {
 				break
 			}
 			m.mm.cur = m.back
 			return nil
-
 		} else if i := slices.IndexFunc(KeyBinds.Numbers, func(v keybind) bool { return slices.Equal(v, in) }); i != -1 {
 			if i > len(m.Items) {
 				continue
@@ -312,7 +309,6 @@ func (l *list) enter() error {
 			l.selected = max(l.selected-1, 0)
 			_ = l.mm.rdr.Render()
 			continue
-
 		} else if slices.ContainsFunc(KeyBinds.Down, func(v keybind) bool { return slices.Equal(v, in) }) {
 			l.selected = min(l.selected+1, len(l.values)-1)
 			_ = l.mm.rdr.Render()
@@ -390,34 +386,33 @@ func (d *digit) enter() error {
 
 		if slices.ContainsFunc(KeyBinds.Exit, func(v keybind) bool { return slices.Equal(v, in) }) || slices.ContainsFunc(KeyBinds.Confirm, func(v keybind) bool { return slices.Equal(v, in) }) {
 			break
+		} else if slices.ContainsFunc(KeyBinds.Delete, func(v keybind) bool { return slices.Equal(v, in) }) {
+			vStr := strconv.Itoa(d.value)
+			if len(vStr) <= 0 {
+				continue
+			}
+			if len(strings.Replace(vStr, "-", "", 1)) == 1 {
+				d.value = min(max(0, d.minimal), d.maximal)
+				_ = d.mm.rdr.Render()
+				continue
+			}
+			v, err := strconv.Atoi(vStr[:len(vStr)-1])
+			if err != nil {
+				d.editing = false
+				_ = d.mm.rdr.Render()
+				return err
+			}
+			d.value = min(max(v, d.minimal), d.maximal)
+			_ = d.mm.rdr.Render()
+			continue
 		} else if slices.ContainsFunc(KeyBinds.Up, func(v keybind) bool { return slices.Equal(v, in) }) {
 			d.value = min(d.value+1, d.maximal)
 			_ = d.mm.rdr.Render()
 			continue
-
 		} else if slices.ContainsFunc(KeyBinds.Down, func(v keybind) bool { return slices.Equal(v, in) }) {
 			d.value = max(d.value-1, d.minimal)
 			_ = d.mm.rdr.Render()
 			continue
-
-		} else if slices.ContainsFunc(KeyBinds.Delete, func(v keybind) bool { return slices.Equal(v, in) }) {
-			vStr := strconv.Itoa(d.value)
-			if len(vStr) > 0 {
-				if len(strings.Replace(vStr, "-", "", 1)) == 1 {
-					d.value = min(max(0, d.minimal), d.maximal)
-					_ = d.mm.rdr.Render()
-					continue
-				}
-				v, err := strconv.Atoi(vStr[:len(vStr)-1])
-				if err != nil {
-					d.editing = false
-					_ = d.mm.rdr.Render()
-					return err
-				}
-				d.value = min(max(v, d.minimal), d.maximal)
-				_ = d.mm.rdr.Render()
-				continue
-			}
 		}
 
 		if strings.ContainsAny(string(CharSets.Digits), string(in[:])) {
@@ -456,48 +451,86 @@ func (m *menu) NewIPv4(name string, value string) *ipv4 {
 	return ip4
 }
 
-func (a *ipv4) String() string { return a.name }
-func (a *ipv4) Value() string  { return a.value.String() }
-func (a *ipv4) Type() string   { return "ipv4" }
-func (a *ipv4) Editing() bool  { return a.editing }
+func (p *ipv4) String() string { return p.name }
+func (p *ipv4) Value() string  { return p.value.String() }
+func (p *ipv4) Type() string   { return "ipv4" }
+func (p *ipv4) Editing() bool  { return p.editing }
 
-func (a *ipv4) enter() error {
-	a.editing = true
-	_ = a.mm.rdr.Render()
+func (p *ipv4) enter() error {
+	p.editing = true
+	carry := []byte{}
+	_ = p.mm.rdr.Render()
 	for {
 		in := make([]byte, 3)
-		if _, err := os.Stdin.Read(in); err != nil {
-			a.editing = false
-			_ = a.mm.rdr.Render()
+		if len(carry) > 0 {
+			in = carry
+			carry = []byte{}
+		} else if _, err := os.Stdin.Read(in); err != nil {
+			p.editing = false
+			_ = p.mm.rdr.Render()
 			return err
 		}
 
 		if slices.ContainsFunc(KeyBinds.Exit, func(v keybind) bool { return slices.Equal(v, in) }) || slices.ContainsFunc(KeyBinds.Confirm, func(v keybind) bool { return slices.Equal(v, in) }) {
 			break
+		} else if slices.ContainsFunc(KeyBinds.Delete, func(v keybind) bool { return slices.Equal(v, in) }) {
+			vStr := strconv.Itoa(int(p.value[p.selected]))
+			if len(vStr) <= 0 {
+				continue
+			}
+			if len(vStr) == 1 {
+				p.value[p.selected] = byte(0)
+				_ = p.mm.rdr.Render()
+				continue
+			}
+			v, err := strconv.Atoi(vStr[:len(vStr)-1])
+			if err != nil {
+				p.editing = false
+				_ = p.mm.rdr.Render()
+				return err
+			}
+			p.value[p.selected] = byte(v)
+			_ = p.mm.rdr.Render()
+			continue
 		} else if slices.ContainsFunc(KeyBinds.Right, func(v keybind) bool { return slices.Equal(v, in) }) {
-			a.selected = min(a.selected+1, 3)
-			_ = a.mm.rdr.Render()
+			p.selected = min(p.selected+1, 3)
+			_ = p.mm.rdr.Render()
 			continue
-
 		} else if slices.ContainsFunc(KeyBinds.Left, func(v keybind) bool { return slices.Equal(v, in) }) {
-			a.selected = max(a.selected-1, 0)
-			_ = a.mm.rdr.Render()
+			p.selected = max(p.selected-1, 0)
+			_ = p.mm.rdr.Render()
 			continue
-
 		} else if slices.ContainsFunc(KeyBinds.Up, func(v keybind) bool { return slices.Equal(v, in) }) {
-			a.value[a.selected] = a.value[a.selected] + 1
-			_ = a.mm.rdr.Render()
+			p.value[p.selected] = p.value[p.selected] + 1
+			_ = p.mm.rdr.Render()
 			continue
-
 		} else if slices.ContainsFunc(KeyBinds.Down, func(v keybind) bool { return slices.Equal(v, in) }) {
-			a.value[a.selected] = a.value[a.selected] - 1
-			_ = a.mm.rdr.Render()
+			p.value[p.selected] = p.value[p.selected] - 1
+			_ = p.mm.rdr.Render()
 			continue
+		}
 
+		if strings.ContainsAny(string(CharSets.Digits), string(in[:])) {
+			v, err := strconv.Atoi(strconv.Itoa(int(p.value[p.selected])) + string(bytes.Trim(in, "\x00")[:]))
+			if err != nil {
+				p.editing = false
+				_ = p.mm.rdr.Render()
+				return err
+			}
+			if v > 255 {
+				if p.selected >= 3 {
+					continue
+				}
+				p.selected += 1
+				carry = in
+				continue
+			}
+			p.value[p.selected] = byte(v)
+			_ = p.mm.rdr.Render()
 		}
 	}
-	a.editing = false
-	_ = a.mm.rdr.Render()
+	p.editing = false
+	_ = p.mm.rdr.Render()
 	return nil
 }
 
@@ -521,47 +554,93 @@ func (m *menu) NewIPv6(name string, value string) *ipv6 {
 	return ip4
 }
 
-func (a *ipv6) String() string { return a.name }
-func (a *ipv6) Value() string  { return a.value.String() }
-func (a *ipv6) Type() string   { return "ipv6" }
-func (a *ipv6) Editing() bool  { return a.editing }
+func (p *ipv6) String() string { return p.name }
+func (p *ipv6) Value() string  { return p.value.String() }
+func (p *ipv6) Type() string   { return "ipv6" }
+func (p *ipv6) Editing() bool  { return p.editing }
 
-func (a *ipv6) enter() error {
-	a.editing = true
-	_ = a.mm.rdr.Render()
+func (p *ipv6) enter() error {
+	p.editing = true
+	carry := []byte{}
+	_ = p.mm.rdr.Render()
 	for {
 		in := make([]byte, 3)
-		if _, err := os.Stdin.Read(in); err != nil {
-			a.editing = false
-			_ = a.mm.rdr.Render()
+		if len(carry) > 0 {
+			in = carry
+			carry = []byte{}
+		} else if _, err := os.Stdin.Read(in); err != nil {
+			p.editing = false
+			_ = p.mm.rdr.Render()
 			return err
 		}
 
 		if slices.ContainsFunc(KeyBinds.Exit, func(v keybind) bool { return slices.Equal(v, in) }) || slices.ContainsFunc(KeyBinds.Confirm, func(v keybind) bool { return slices.Equal(v, in) }) {
 			break
+		} else if slices.ContainsFunc(KeyBinds.Delete, func(v keybind) bool { return slices.Equal(v, in) }) {
+			vStr := hex.EncodeToString(p.value[p.selected : p.selected+2])
+			if len(vStr) <= 0 {
+				continue
+			}
+			v, err := hex.DecodeString(strings.Repeat("0", 5-len(vStr)) + vStr[:len(vStr)-1])
+			if err != nil {
+				p.editing = false
+				_ = p.mm.rdr.Render()
+				return err
+			}
+			p.value[p.selected], p.value[p.selected+1] = v[0], v[1]
+			_ = p.mm.rdr.Render()
+			continue
+		} else if strings.ContainsAny(string(CharSets.Hex), string(in[:])) {
+			vStr := strings.Replace(hex.EncodeToString(p.value[p.selected:p.selected+2])+string(bytes.Trim(in, "\x00")[:]), "0", "", 1)
+			if len(vStr) > 4 {
+				// vStr = "ffff"
+				if p.selected >= 14 {
+					continue
+				}
+				p.selected += 2
+				carry = in
+				continue
+			}
+			v, err := hex.DecodeString(vStr)
+			if err != nil {
+				p.editing = false
+				_ = p.mm.rdr.Render()
+				return err
+			}
+			p.value[p.selected], p.value[p.selected+1] = v[0], v[1]
+			_ = p.mm.rdr.Render()
 		} else if slices.ContainsFunc(KeyBinds.Right, func(v keybind) bool { return slices.Equal(v, in) }) {
-			a.selected = min(a.selected+1, 15)
-			_ = a.mm.rdr.Render()
+			p.selected = min(p.selected+2, 14)
+			_ = p.mm.rdr.Render()
 			continue
-
 		} else if slices.ContainsFunc(KeyBinds.Left, func(v keybind) bool { return slices.Equal(v, in) }) {
-			a.selected = max(a.selected-1, 0)
-			_ = a.mm.rdr.Render()
+			p.selected = max(p.selected-2, 0)
+			_ = p.mm.rdr.Render()
 			continue
-
 		} else if slices.ContainsFunc(KeyBinds.Up, func(v keybind) bool { return slices.Equal(v, in) }) {
-			a.value[a.selected] = a.value[a.selected] + 1
-			_ = a.mm.rdr.Render()
+			if int(p.value[p.selected+1]) < 255 {
+				p.value[p.selected+1] = p.value[p.selected+1] + 1
+			} else if int(p.value[p.selected]) < 255 {
+				p.value[p.selected] = p.value[p.selected] + 1
+			} else {
+				p.value[p.selected], p.value[p.selected+1] = byte(0), byte(0)
+			}
+			_ = p.mm.rdr.Render()
 			continue
-
 		} else if slices.ContainsFunc(KeyBinds.Down, func(v keybind) bool { return slices.Equal(v, in) }) {
-			a.value[a.selected] = a.value[a.selected] - 1
-			_ = a.mm.rdr.Render()
+			if int(p.value[p.selected]) > 0 {
+				p.value[p.selected] = p.value[p.selected] - 1
+			} else if int(p.value[p.selected+1]) > 0 {
+				p.value[p.selected+1] = p.value[p.selected+1] - 1
+			} else {
+				p.value[p.selected], p.value[p.selected+1] = byte(255), byte(255)
+			}
+			_ = p.mm.rdr.Render()
 			continue
-
 		}
+
 	}
-	a.editing = false
-	_ = a.mm.rdr.Render()
+	p.editing = false
+	_ = p.mm.rdr.Render()
 	return nil
 }

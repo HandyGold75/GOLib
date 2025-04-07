@@ -105,7 +105,7 @@ func (rdr *Basic) Render() error {
 
 	lines = append(lines, getLine("", "◀ ", rdr.mm.cur.BackText, rdr.mm.cur.selected >= len(rdr.mm.cur.Items), rdr.mm.cur.selected >= len(rdr.mm.cur.Items)))
 
-	if _, err := rdr.trm.Write(slices.Concat([]byte("\033[2J\033[0;0H"), bytes.Join(lines[:min(len(lines), y-1)], []byte("\r\n")), []byte("\r\n"+rdr.statusline[:min(len(rdr.statusline), y-1)]))); err != nil {
+	if _, err := rdr.trm.Write(slices.Concat([]byte("\033[2J\033[0;0H"), bytes.Join(lines[:min(len(lines), y-1)], []byte("\r\n")), []byte("\033["+strconv.Itoa(y)+";0H"+rdr.statusline[:min(len(rdr.statusline), x-1)]))); err != nil {
 		return err
 	}
 	return nil
@@ -354,7 +354,7 @@ func (rdr *Big) Render() error {
 
 	lines = append(lines, getLines("", "< ", rdr.mm.cur.BackText, rdr.mm.cur.selected >= len(rdr.mm.cur.Items), rdr.mm.cur.selected >= len(rdr.mm.cur.Items))...)
 
-	if _, err := rdr.trm.Write(slices.Concat([]byte("\033[2J\033[0;0H"), bytes.Join(lines[:min(len(lines), y-1)], []byte("\r\n")), []byte("\r\n"+rdr.statusline[:min(len(rdr.statusline), y-1)]))); err != nil {
+	if _, err := rdr.trm.Write(slices.Concat([]byte("\033[2J\033[0;0H"), bytes.Join(lines[:min(len(lines), y-1)], []byte("\r\n")), []byte("\033["+strconv.Itoa(y)+";0H"+rdr.statusline[:min(len(rdr.statusline), (x*12)-1)]))); err != nil {
 		return err
 	}
 	return nil
