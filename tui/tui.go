@@ -31,7 +31,7 @@ type (
 	keybinds struct{ Up, Down, Right, Left, Exit, Numbers, Confirm, Delete []keybind }
 	keybind  []byte
 
-	charSets struct{ Letters, Digits, WhiteSpace, Punctuation, General charSet }
+	charSets struct{ Letters, Digits, Hex, WhiteSpace, Punctuation, General charSet }
 	charSet  string
 
 	MainMenu struct {
@@ -121,6 +121,7 @@ var (
 	CharSets = charSets{
 		Letters:     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
 		Digits:      "0123456789",
+		Hex:         "0123456789abcdefABCDEF",
 		WhiteSpace:  " ",
 		Punctuation: "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~",
 		General:     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~",
@@ -188,6 +189,14 @@ func NewMenuBasic(title string) (*MainMenu, error) {
 // To set default alignment set `tui.Defaults.Align` before creating menus.
 func NewMenuBulky(title string) (*MainMenu, error) {
 	return NewMenu(title, NewBulky())
+}
+
+// Set the statusline.
+//
+// Will cause a rerender of the current menu.
+func (mm *MainMenu) StatusLine(status string) {
+	mm.rdr.StatusLine(status)
+	mm.rdr.Render()
 }
 
 // Start tui, this will render and handle user input in a goroutine.
@@ -263,26 +272,27 @@ func main() {
 	}
 	defer func() { _ = term.Restore(int(os.Stdin.Fd()), oldState) }()
 
-	mn, err := NewMenuBasic("Some Title")
+	mm, err := NewMenuBasic("Some Title")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	mm.StatusLine("A status in a line")
 
-	_ = mn.Menu.NewMenu("A menu")
-	mn.Menu.NewText("A text", CharSets.General, "val")
-	mn.Menu.NewAction("A action", func() {})
-	mn.Menu.NewList("A list", []string{"Yes", "No", "Maybe"})
-	mn.Menu.NewDigit("A digit", 99, -128, 127)
-	mn.Menu.NewIPv4("A ipv4", "127.0.0.1")
-	mn.Menu.NewIPv6("A ipv4", "::1")
+	_ = mm.Menu.NewMenu("A menu")
+	mm.Menu.NewText("A text", CharSets.General, "val")
+	mm.Menu.NewAction("A action", func() {})
+	mm.Menu.NewList("A list", []string{"Yes", "No", "Maybe"})
+	mm.Menu.NewDigit("A digit", 99, -128, 127)
+	mm.Menu.NewIPv4("A ipv4", "127.0.0.1")
+	mm.Menu.NewIPv6("A ipv4", "::1")
 
-	if err := mn.Start(oldState); err != nil {
+	if err := mm.Start(oldState); err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	if err := mn.Join(); err != nil {
+	if err := mm.Join(); err != nil {
 		fmt.Println(err)
 		return
 	}
