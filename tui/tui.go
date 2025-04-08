@@ -1,8 +1,7 @@
-package main
+package tui
 
 import (
 	"errors"
-	"fmt"
 	"os"
 
 	"golang.org/x/term"
@@ -263,37 +262,4 @@ func (mm *MainMenu) Join() error {
 	mm.active = false
 
 	return e
-}
-
-func main() {
-	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
-	if err != nil {
-		panic(err)
-	}
-	defer func() { _ = term.Restore(int(os.Stdin.Fd()), oldState) }()
-
-	mm, err := NewMenuBasic("Some Title")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	mm.StatusLine("A status in a line")
-
-	_ = mm.Menu.NewMenu("A menu")
-	mm.Menu.NewText("A text", CharSets.General, "val")
-	mm.Menu.NewAction("A action", func() {})
-	mm.Menu.NewList("A list", []string{"Yes", "No", "Maybe"})
-	mm.Menu.NewDigit("A digit", 99, -128, 127)
-	mm.Menu.NewIPv4("A ipv4", "127.0.0.1")
-	mm.Menu.NewIPv6("A ipv4", "::1")
-
-	if err := mm.Start(oldState); err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	if err := mm.Join(); err != nil {
-		fmt.Println(err)
-		return
-	}
 }
