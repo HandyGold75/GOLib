@@ -3,6 +3,7 @@ go 1.24.2
 use (
 	./argp
 	./logger
+	./main
 	./pbar
 	./scheduler
 	./tui
