@@ -8,39 +8,90 @@ import (
 )
 
 type (
+	color   string
+	align   int
+	charSet string
+
 	tuiErrors struct{ NotATerm, TuiStarted, TuiNotStarted, MainMenuNotHooked, exit error }
 
-	colors struct {
-		Black, Red, Green, Yellow, Blue, Magenta, Cyan, White                                                                 color
-		BrightBlack, BrightRed, BrightGreen, BrightYellow, BrightBlue, BrightMagenta, BrightCyan, BrightWhite                 color
-		BGBlack, BGRed, BGGreen, BGYellow, BGBlue, BGMagenta, BGCyan, BGWhite                                                 color
-		BGBrightBlack, BGBrightRed, BGBrightGreen, BGBrightYellow, BGBrightBlue, BGBrightMagenta, BGBrightCyan, BGBrightWhite color
-		Reset                                                                                                                 color
-	}
-	color []byte
-
-	aligns struct{ Left, Middle, Right align }
-	align  string
-
 	defaults struct {
-		Color, AccentColor, ValueColor, SelectColor, SelectBGColor color
-		Align                                                      align
+		Color, AccentColor, ValueColor, SelectColor color
+		Align                                       align
 	}
 
 	keybinds struct{ Up, Down, Right, Left, Exit, Numbers, Confirm, Delete []keybind }
 	keybind  []byte
 
-	charSets struct{ Letters, Digits, Hex, WhiteSpace, Punctuation, General charSet }
-	charSet  string
-
 	MainMenu struct {
-		Menu       *menu
+		Menu       *Menu
 		statusline string
-		cur        *menu
+		cur        *Menu
 		rdr        Renderer
 		exit       chan error
 		active     bool
 	}
+)
+
+const (
+	Reset color = "\033[0m"
+
+	Bold            color = "\033[1m"
+	Faint           color = "\033[2m"
+	Italic          color = "\033[3m"
+	Underline       color = "\033[4m"
+	StrikeTrough    color = "\033[9m"
+	DubbleUnderline color = "\033[21m"
+
+	Black   color = "\033[30m"
+	Red     color = "\033[31m"
+	Green   color = "\033[32m"
+	Yellow  color = "\033[33m"
+	Blue    color = "\033[34m"
+	Magenta color = "\033[35m"
+	Cyan    color = "\033[36m"
+	White   color = "\033[37m"
+
+	BGBlack   color = "\033[40m"
+	BGRed     color = "\033[41m"
+	BGGreen   color = "\033[42m"
+	BGYellow  color = "\033[43m"
+	BGBlue    color = "\033[44m"
+	BGMagenta color = "\033[45m"
+	BGCyan    color = "\033[46m"
+	BGWhite   color = "\033[47m"
+
+	BrightBlack   color = "\033[90m"
+	BrightRed     color = "\033[91m"
+	BrightGreen   color = "\033[92m"
+	BrightYellow  color = "\033[93m"
+	BrightBlue    color = "\033[94m"
+	BrightMagenta color = "\033[95m"
+	BrightCyan    color = "\033[96m"
+	BrightWhite   color = "\033[97m"
+
+	BGBrightBlack   color = "\033[100m"
+	BGBrightRed     color = "\033[101m"
+	BGBrightGreen   color = "\033[102m"
+	BGBrightYellow  color = "\033[103m"
+	BGBrightBlue    color = "\033[104m"
+	BGBrightMagenta color = "\033[105m"
+	BGBrightCyan    color = "\033[106m"
+	BGBrightWhite   color = "\033[107m"
+)
+
+const (
+	AlignLeft align = iota
+	AlignMiddle
+	AlignRight
+)
+
+const (
+	Letters        charSet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	Digits         charSet = "0123456789"
+	Hex            charSet = "0123456789abcdefABCDEF"
+	WhiteSpace     charSet = " "
+	Punctuation    charSet = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"
+	GeneralCharSet charSet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"
 )
 
 var (
@@ -53,58 +104,12 @@ var (
 		exit: errors.New("tui is exiting"),
 	}
 
-	Colors = colors{
-		Black:   []byte{27, '[', '3', '0', 'm'},
-		Red:     []byte{27, '[', '3', '1', 'm'},
-		Green:   []byte{27, '[', '3', '2', 'm'},
-		Yellow:  []byte{27, '[', '3', '3', 'm'},
-		Blue:    []byte{27, '[', '3', '4', 'm'},
-		Magenta: []byte{27, '[', '3', '5', 'm'},
-		Cyan:    []byte{27, '[', '3', '6', 'm'},
-		White:   []byte{27, '[', '3', '7', 'm'},
-
-		BrightBlack:   []byte{27, '[', '9', '0', 'm'},
-		BrightRed:     []byte{27, '[', '9', '1', 'm'},
-		BrightGreen:   []byte{27, '[', '9', '2', 'm'},
-		BrightYellow:  []byte{27, '[', '9', '3', 'm'},
-		BrightBlue:    []byte{27, '[', '9', '4', 'm'},
-		BrightMagenta: []byte{27, '[', '9', '5', 'm'},
-		BrightCyan:    []byte{27, '[', '9', '6', 'm'},
-		BrightWhite:   []byte{27, '[', '9', '7', 'm'},
-
-		BGBlack:   []byte{27, '[', '4', '0', 'm'},
-		BGRed:     []byte{27, '[', '4', '1', 'm'},
-		BGGreen:   []byte{27, '[', '4', '2', 'm'},
-		BGYellow:  []byte{27, '[', '4', '3', 'm'},
-		BGBlue:    []byte{27, '[', '4', '4', 'm'},
-		BGMagenta: []byte{27, '[', '4', '5', 'm'},
-		BGCyan:    []byte{27, '[', '4', '6', 'm'},
-		BGWhite:   []byte{27, '[', '4', '7', 'm'},
-
-		BGBrightBlack:   []byte{27, '[', '1', '0', '0', 'm'},
-		BGBrightRed:     []byte{27, '[', '1', '0', '1', 'm'},
-		BGBrightGreen:   []byte{27, '[', '1', '0', '2', 'm'},
-		BGBrightYellow:  []byte{27, '[', '1', '0', '3', 'm'},
-		BGBrightBlue:    []byte{27, '[', '1', '0', '4', 'm'},
-		BGBrightMagenta: []byte{27, '[', '1', '0', '5', 'm'},
-		BGBrightCyan:    []byte{27, '[', '1', '0', '6', 'm'},
-		BGBrightWhite:   []byte{27, '[', '1', '0', '7', 'm'},
-
-		Reset: []byte{27, '[', '0', 'm'},
-	}
-	Aligns = aligns{
-		Left:   "Left",
-		Middle: "Middle",
-		Right:  "Right",
-	}
-
 	Defaults = defaults{
-		Color:         Colors.White,
-		AccentColor:   Colors.Yellow,
-		ValueColor:    Colors.Blue,
-		SelectColor:   Colors.Black,
-		SelectBGColor: Colors.BGYellow,
-		Align:         Aligns.Middle,
+		Color:       White,
+		AccentColor: Yellow,
+		ValueColor:  Bold + Blue,
+		SelectColor: BGYellow + Black,
+		Align:       AlignMiddle,
 	}
 
 	KeyBinds = keybinds{
@@ -117,15 +122,6 @@ var (
 		Confirm: []keybind{{13, 0, 0}},                                                                                                             // RETURN
 		Delete:  []keybind{{127, 0, 0}, {27, 91, 51}},                                                                                              // BACKSPACE, DEL
 	}
-
-	CharSets = charSets{
-		Letters:     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
-		Digits:      "0123456789",
-		Hex:         "0123456789abcdefABCDEF",
-		WhiteSpace:  " ",
-		Punctuation: "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~",
-		General:     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~",
-	}
 )
 
 // Get a new main menu with a custom renderer.
@@ -134,26 +130,25 @@ var (
 //
 // Only 1 main menu should be active (started) at a time.
 //
-// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.SelectBGColor`, `tui.Defaults.ValueColor` before creating menus.
+// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.ValueColor` before creating menus.
 //
 // To set default alignment set `tui.Defaults.Align` before creating menus.
 func NewMenu(name string, rdr Renderer) (*MainMenu, error) {
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
 		return nil, Errors.NotATerm
 	}
-	mn := &menu{
-		mm:            nil,
-		name:          name,
-		BackText:      "Exit",
-		Color:         Defaults.Color,
-		AccentColor:   Defaults.AccentColor,
-		SelectColor:   Defaults.SelectColor,
-		SelectBGColor: Defaults.SelectBGColor,
-		ValueColor:    Defaults.ValueColor,
-		Align:         Defaults.Align,
-		Items:         []Item{},
-		selected:      0,
-		back:          nil,
+	mn := &Menu{
+		mm:          nil,
+		name:        name,
+		BackText:    "Exit",
+		Color:       Defaults.Color,
+		AccentColor: Defaults.AccentColor,
+		SelectColor: Defaults.SelectColor,
+		ValueColor:  Defaults.ValueColor,
+		Align:       Defaults.Align,
+		Items:       []Item{},
+		selected:    0,
+		back:        nil,
 	}
 	main := &MainMenu{
 		Menu:       mn,
@@ -173,7 +168,7 @@ func NewMenu(name string, rdr Renderer) (*MainMenu, error) {
 //
 // Only 1 main menu should be active (started) at a time.
 //
-// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.SelectBGColor` before creating menus.
+// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor` before creating menus.
 //
 // To set default alignment set `tui.Defaults.Align` before creating menus.
 func NewMenuBasic(title string) (*MainMenu, error) {
@@ -184,7 +179,7 @@ func NewMenuBasic(title string) (*MainMenu, error) {
 //
 // Only 1 main menu should be active (started) at a time.
 //
-// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.SelectBGColor` before creating menus.
+// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor` before creating menus.
 //
 // To set default alignment set `tui.Defaults.Align` before creating menus.
 func NewMenuBulky(title string) (*MainMenu, error) {
