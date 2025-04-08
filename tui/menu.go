@@ -11,7 +11,7 @@ import (
 )
 
 type (
-	item interface {
+	Item interface {
 		// Get the name of the item.
 		String() string
 
@@ -28,7 +28,8 @@ type (
 		// Get the editing state of the item.
 		Editing() bool
 
-		enter() error
+		// Called when the item has been selected.
+		Enter() error
 	}
 
 	menu struct {
@@ -41,7 +42,7 @@ type (
 		SelectBGColor color
 		ValueColor    color
 		Align         align
-		Items         []item
+		Items         []Item
 		selected      int
 		back          *menu
 	}
@@ -106,7 +107,7 @@ func (m *menu) NewMenu(name string) *menu {
 		SelectBGColor: Defaults.SelectBGColor,
 		ValueColor:    Defaults.ValueColor,
 		Align:         Defaults.Align,
-		Items:         []item{},
+		Items:         []Item{},
 		selected:      0,
 		back:          m,
 	}
@@ -119,7 +120,7 @@ func (m *menu) Value() string  { return "" }
 func (m *menu) Type() string   { return "menu" }
 func (m *menu) Editing() bool  { return false }
 
-func (m *menu) enter() error {
+func (m *menu) Enter() error {
 	_ = m.mm.rdr.Render()
 	for {
 		in := make([]byte, 3)
@@ -143,7 +144,7 @@ func (m *menu) enter() error {
 					m.mm.cur = m.Items[m.selected].(*menu)
 					return nil
 				}
-				err := m.Items[m.selected].enter()
+				err := m.Items[m.selected].Enter()
 				return err
 			}
 			if m.back == nil {
@@ -168,7 +169,7 @@ func (m *menu) enter() error {
 					m.mm.cur = m.Items[m.selected].(*menu)
 					return nil
 				}
-				err := m.Items[m.selected].enter()
+				err := m.Items[m.selected].Enter()
 				return err
 			}
 			if m.back == nil {
@@ -208,7 +209,7 @@ func (v *text) Value() string  { return v.value }
 func (v *text) Type() string   { return "text" }
 func (v *text) Editing() bool  { return v.editing }
 
-func (v *text) enter() error {
+func (v *text) Enter() error {
 	v.editing = true
 	_ = v.mm.rdr.Render()
 	for {
@@ -260,7 +261,7 @@ func (a *action) Value() string  { return "" }
 func (a *action) Type() string   { return "action" }
 func (a *action) Editing() bool  { return false }
 
-func (a *action) enter() error {
+func (a *action) Enter() error {
 	a.callback()
 	return Errors.exit
 }
@@ -292,7 +293,7 @@ func (l *list) Value() string {
 func (l *list) Type() string  { return "list" }
 func (l *list) Editing() bool { return l.editing }
 
-func (l *list) enter() error {
+func (l *list) Enter() error {
 	l.editing = true
 	_ = l.mm.rdr.Render()
 	for {
@@ -373,7 +374,7 @@ func (d *digit) Value() string  { return strconv.Itoa(d.value) }
 func (d *digit) Type() string   { return "digit" }
 func (d *digit) Editing() bool  { return d.editing }
 
-func (d *digit) enter() error {
+func (d *digit) Enter() error {
 	d.editing = true
 	_ = d.mm.rdr.Render()
 	for {
@@ -456,7 +457,7 @@ func (p *ipv4) Value() string  { return p.value.String() }
 func (p *ipv4) Type() string   { return "ipv4" }
 func (p *ipv4) Editing() bool  { return p.editing }
 
-func (p *ipv4) enter() error {
+func (p *ipv4) Enter() error {
 	p.editing = true
 	carry := []byte{}
 	_ = p.mm.rdr.Render()
@@ -559,7 +560,7 @@ func (p *ipv6) Value() string  { return p.value.String() }
 func (p *ipv6) Type() string   { return "ipv6" }
 func (p *ipv6) Editing() bool  { return p.editing }
 
-func (p *ipv6) enter() error {
+func (p *ipv6) Enter() error {
 	p.editing = true
 	carry := []byte{}
 	_ = p.mm.rdr.Render()
