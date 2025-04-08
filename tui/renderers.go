@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"bytes"
 	"io"
 	"os"
 	"slices"
@@ -26,7 +25,7 @@ type (
 		mm  *MainMenu
 		trm *term.Terminal
 	}
-	rendererBig struct {
+	rendererBulky struct {
 		mm               *MainMenu
 		trm              *term.Terminal
 		renderBigCharMap map[rune][][2]int
@@ -54,7 +53,7 @@ func (rdr *rendererBasic) Render() error {
 		return err
 	}
 
-	getLine := func(text string, accentText string, valueText string, isSelected bool, isEditing bool) []byte {
+	getLine := func(text string, accentText string, valueText string, isSelected bool, isEditing bool) string {
 		tR, atR, vtR := []rune(text), []rune(accentText), []rune(valueText)
 		if len(tR)+len(atR)+len(vtR) > x {
 			if len(vtR) > 3 {
@@ -67,33 +66,33 @@ func (rdr *rendererBasic) Render() error {
 			}
 		}
 
-		line := []byte{}
+		line := ""
 		switch rdr.mm.cur.Align {
-		case Aligns.Left:
-			line = []byte{}
-		case Aligns.Middle:
+		case AlignLeft:
+			line = ""
+		case AlignMiddle:
 			i := int((float64(x) / 2) - (float64(len(tR)+len(atR)+len(vtR)) / 2))
 			if i > 0 {
-				line = []byte("\033[" + strconv.Itoa(i) + "C")
+				line = "\033[" + strconv.Itoa(i) + "C"
 			}
-		case Aligns.Right:
+		case AlignRight:
 			i := x - (len(tR) + len(atR) + len(vtR))
 			if i > 0 {
-				line = []byte("\033[" + strconv.Itoa(i) + "C")
+				line = "\033[" + strconv.Itoa(i) + "C"
 			}
 		}
 
 		if isSelected {
 			if isEditing {
-				return slices.Concat(line, rdr.mm.cur.Color, []byte(string(tR)), Colors.Reset, rdr.mm.cur.AccentColor, []byte(string(atR)), Colors.Reset, rdr.mm.cur.SelectBGColor, rdr.mm.cur.SelectColor, []byte(string(vtR)), Colors.Reset)
+				return line + string(rdr.mm.cur.Color) + string(tR) + string(Reset+rdr.mm.cur.AccentColor) + string(atR) + string(Reset+rdr.mm.cur.SelectColor) + string(vtR) + string(Reset)
 			} else {
-				return slices.Concat(line, rdr.mm.cur.SelectBGColor, rdr.mm.cur.SelectColor, []byte(string(tR)), Colors.Reset, rdr.mm.cur.AccentColor, []byte(string(atR)), Colors.Reset, rdr.mm.cur.ValueColor, []byte(string(vtR)), Colors.Reset)
+				return line + string(rdr.mm.cur.SelectColor) + string(tR) + string(Reset+rdr.mm.cur.AccentColor) + string(atR) + string(Reset+rdr.mm.cur.ValueColor) + string(vtR) + string(Reset)
 			}
 		}
-		return slices.Concat(line, rdr.mm.cur.Color, []byte(string(tR)), Colors.Reset, rdr.mm.cur.AccentColor, []byte(string(atR)), Colors.Reset, rdr.mm.cur.ValueColor, []byte(string(vtR)), Colors.Reset)
+		return line + string(rdr.mm.cur.Color) + string(tR) + string(Reset+rdr.mm.cur.AccentColor) + string(atR) + string(Reset+rdr.mm.cur.ValueColor) + string(vtR) + string(Reset)
 	}
 
-	lines := append([][]byte{getLine(rdr.mm.cur.String(), "", "", false, false)}, slices.Concat(rdr.mm.cur.AccentColor, []byte(strings.Repeat("─", x)), Colors.Reset))
+	lines := []string{getLine(rdr.mm.cur.String(), "", "", false, false), string(rdr.mm.cur.AccentColor) + strings.Repeat("─", x) + string(Reset)}
 
 	for i, itm := range rdr.mm.cur.Items {
 		switch itm.Type() {
@@ -108,7 +107,7 @@ func (rdr *rendererBasic) Render() error {
 
 	lines = append(lines, getLine("", "◀ ", rdr.mm.cur.BackText, rdr.mm.cur.selected >= len(rdr.mm.cur.Items), rdr.mm.cur.selected >= len(rdr.mm.cur.Items)))
 
-	if _, err := rdr.trm.Write(slices.Concat([]byte("\033[2J\033[0;0H"), bytes.Join(lines[:min(len(lines), y-1)], []byte("\r\n")), []byte("\033["+strconv.Itoa(y)+";0H"+rdr.mm.statusline[:min(len(rdr.mm.statusline), x-1)]))); err != nil {
+	if _, err := rdr.trm.Write([]byte("\033[2J\033[0;0H" + strings.Join(lines[:min(len(lines), y-1)], "\r\n") + "\033[" + strconv.Itoa(y) + ";0H" + rdr.mm.statusline[:min(len(rdr.mm.statusline), x-1)])); err != nil {
 		return err
 	}
 	return nil
@@ -124,8 +123,8 @@ func (rdr *rendererBasic) Clear() error {
 func (rdr *rendererBasic) HookMainMenu(mm *MainMenu) { rdr.mm = mm }
 
 // A bulky renderer
-func newRendererBulky() *rendererBig {
-	return &rendererBig{
+func newRendererBulky() *rendererBulky {
+	return &rendererBulky{
 		mm: nil,
 		trm: term.NewTerminal(struct {
 			io.Reader
@@ -214,7 +213,7 @@ func newRendererBulky() *rendererBig {
 }
 
 // Render the current menu of the hooked main menu.
-func (rdr *rendererBig) Render() error {
+func (rdr *rendererBulky) Render() error {
 	if rdr.mm == nil {
 		return Errors.MainMenuNotHooked
 	}
@@ -224,31 +223,31 @@ func (rdr *rendererBig) Render() error {
 	}
 	x = int(float64(x) / 12)
 
-	addBlocks := func(lines [][]byte, str string) {
+	addBlocks := func(lines []string, str string) {
 		for end, r := range str {
 			cords, ok := rdr.renderBigCharMap[unicode.ToUpper(r)]
 
 			if !ok {
 				return
 			}
-			block := [][][]byte{}
+			block := [][]string{}
 			for range 5 {
-				block = append(block, [][]byte{[]byte("  "), []byte("  "), []byte("  "), []byte("  "), []byte("  ")})
+				block = append(block, []string{"  ", "  ", "  ", "  ", "  "})
 			}
 			for _, cord := range cords {
-				block[cord[1]] = slices.Concat(block[cord[1]][:cord[0]], [][]byte{[]byte("██")}, block[cord[1]][(cord[0])+1:])
+				block[cord[1]] = slices.Concat(block[cord[1]][:cord[0]], []string{"██"}, block[cord[1]][(cord[0])+1:])
 			}
 
 			for i, line := range block {
-				lines[i] = slices.Concat(lines[i], bytes.Join(line, []byte{}))
+				lines[i] += strings.Join(line, "")
 				if end != len(str)-1 {
-					lines[i] = append(lines[i], []byte("  ")...)
+					lines[i] += "  "
 				}
 			}
 		}
 	}
 
-	getLines := func(text string, accentText string, valueText string, isSelected bool, isEditing bool) [][]byte {
+	getLines := func(text string, accentText string, valueText string, isSelected bool, isEditing bool) []string {
 		tR, atR, vtR := []rune(text), []rune(accentText), []rune(valueText)
 		if len(tR)+len(atR)+len(vtR) > x {
 			if len(vtR) > 3 {
@@ -261,102 +260,93 @@ func (rdr *rendererBig) Render() error {
 			}
 		}
 
-		lines := [][]byte{{}, {}, {}, {}, {}}
+		lines := []string{"", "", "", "", ""}
 		switch rdr.mm.cur.Align {
-		case Aligns.Left:
-			lines = [][]byte{{}, {}, {}, {}, {}}
-		case Aligns.Middle:
+		case AlignLeft:
+			lines = []string{"", "", "", "", ""}
+		case AlignMiddle:
 			i := int((float64(x)/2)-(float64(len(tR)+len(atR)+len(vtR))/2)) * 12
 			if i > 0 {
-				lines = [][]byte{
-					[]byte("\033[" + strconv.Itoa(i) + "C"),
-					[]byte("\033[" + strconv.Itoa(i) + "C"),
-					[]byte("\033[" + strconv.Itoa(i) + "C"),
-					[]byte("\033[" + strconv.Itoa(i) + "C"),
-					[]byte("\033[" + strconv.Itoa(i) + "C"),
-				}
+				cur := "\033[" + strconv.Itoa(i) + "C"
+				lines = []string{cur, cur, cur, cur, cur}
 			}
-		case Aligns.Right:
+		case AlignRight:
 			i := (x - (len(tR) + len(atR) + len(vtR))) * 12
 			if i > 0 {
-				lines = [][]byte{
-					[]byte("\033[" + strconv.Itoa(i) + "C"),
-					[]byte("\033[" + strconv.Itoa(i) + "C"),
-					[]byte("\033[" + strconv.Itoa(i) + "C"),
-					[]byte("\033[" + strconv.Itoa(i) + "C"),
-					[]byte("\033[" + strconv.Itoa(i) + "C"),
-				}
+				cur := "\033[" + strconv.Itoa(i) + "C"
+				lines = []string{cur, cur, cur, cur, cur}
 			}
 		}
 
 		for i := range lines {
 			if isSelected {
 				if isEditing {
-					lines[i] = slices.Concat(lines[i], rdr.mm.cur.Color)
+					lines[i] += string(rdr.mm.cur.Color)
 				} else {
-					lines[i] = slices.Concat(lines[i], rdr.mm.cur.SelectBGColor, rdr.mm.cur.SelectColor)
+					lines[i] += string(rdr.mm.cur.SelectColor)
 				}
 			} else {
-				lines[i] = slices.Concat(lines[i], rdr.mm.cur.Color)
+				lines[i] += string(rdr.mm.cur.Color)
 			}
 		}
 
 		addBlocks(lines, string(tR))
 
 		for i := range lines {
-			lines[i] = slices.Concat(lines[i], Colors.Reset, rdr.mm.cur.AccentColor)
+			lines[i] += string(Reset + rdr.mm.cur.AccentColor)
 		}
 
 		addBlocks(lines, string(atR))
 
 		for i := range lines {
-			lines[i] = slices.Concat(lines[i], Colors.Reset, rdr.mm.cur.ValueColor)
+			lines[i] += string(Reset + rdr.mm.cur.ValueColor)
 			if isSelected {
 				if isEditing {
-					lines[i] = slices.Concat(lines[i], rdr.mm.cur.SelectBGColor, rdr.mm.cur.SelectColor)
+					lines[i] += string(rdr.mm.cur.SelectColor)
 				} else {
-					lines[i] = slices.Concat(lines[i], rdr.mm.cur.ValueColor)
+					lines[i] += string(rdr.mm.cur.ValueColor)
 				}
 			} else {
-				lines[i] = slices.Concat(lines[i], rdr.mm.cur.ValueColor)
+				lines[i] += string(rdr.mm.cur.ValueColor)
 			}
 		}
 
 		addBlocks(lines, string(vtR))
 
 		for i := range lines {
-			lines[i] = append(lines[i], Colors.Reset...)
+			lines[i] += string(Reset)
 		}
 
+		lines = append(lines, "")
 		return lines
 	}
 
-	lines := append(getLines(rdr.mm.cur.String(), "", "", false, false), slices.Concat(rdr.mm.cur.AccentColor, []byte(strings.Repeat("─", x*12)), Colors.Reset))
+	lines := append(getLines(rdr.mm.cur.String(), "", "", false, false), string(rdr.mm.cur.AccentColor)+strings.Repeat("─", x*11)+string(Reset), "")
 
 	for i, itm := range rdr.mm.cur.Items[max(0, rdr.mm.cur.selected):] {
 		switch itm.Type() {
 		case "menu":
-			lines = slices.Concat(lines, getLines(itm.String(), " >", "", i == 0, false), [][]byte{{}})
+			lines = append(lines, getLines(itm.String(), " >", "", i == 0, false)...)
 		case "text", "list", "digit", "ipv4", "ipv6":
-			lines = slices.Concat(lines, getLines(itm.String(), ": ", itm.Value(), i == 0, itm.Editing()), [][]byte{{}})
+			lines = append(lines, getLines(itm.String(), ": ", itm.Value(), i == 0, itm.Editing())...)
 		default:
-			lines = slices.Concat(lines, getLines(itm.String(), "", "", i == 0, false), [][]byte{{}})
+			lines = append(lines, getLines(itm.String(), "", "", i == 0, false)...)
 		}
 	}
 
 	lines = append(lines, getLines("", "< ", rdr.mm.cur.BackText, rdr.mm.cur.selected >= len(rdr.mm.cur.Items), rdr.mm.cur.selected >= len(rdr.mm.cur.Items))...)
 
-	if _, err := rdr.trm.Write(slices.Concat([]byte("\033[2J\033[0;0H"), bytes.Join(lines[:min(len(lines), y-1)], []byte("\r\n")), []byte("\033["+strconv.Itoa(y)+";0H"+rdr.mm.statusline[:min(len(rdr.mm.statusline), (x*12)-1)]))); err != nil {
+	if _, err := rdr.trm.Write([]byte("\033[2J\033[0;0H" + strings.Join(lines[:min(len(lines), y-1)], "\r\n") + "\033[" + strconv.Itoa(y) + ";0H" + rdr.mm.statusline[:min(len(rdr.mm.statusline), (x*12)-1)])); err != nil {
 		return err
 	}
 	return nil
 }
 
 // Clear the screen.
-func (rdr *rendererBig) Clear() error {
+func (rdr *rendererBulky) Clear() error {
 	_, err := rdr.trm.Write([]byte("\033[2J\033[0;0H"))
 	return err
 }
 
 // Hook a main menu to the renderer, this is required before calling `rdr.Render`
-func (rdr *rendererBig) HookMainMenu(mm *MainMenu) { rdr.mm = mm }
+func (rdr *rendererBulky) HookMainMenu(mm *MainMenu) { rdr.mm = mm }

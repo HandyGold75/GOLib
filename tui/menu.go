@@ -32,19 +32,18 @@ type (
 		Enter() error
 	}
 
-	menu struct {
-		mm            *MainMenu
-		name          string
-		BackText      string
-		Color         color
-		AccentColor   color
-		SelectColor   color
-		SelectBGColor color
-		ValueColor    color
-		Align         align
-		Items         []Item
-		selected      int
-		back          *menu
+	Menu struct {
+		mm          *MainMenu
+		name        string
+		BackText    string
+		Color       color
+		AccentColor color
+		SelectColor color
+		ValueColor  color
+		Align       align
+		Items       []Item
+		selected    int
+		back        *Menu
 	}
 	text struct {
 		mm      *MainMenu
@@ -89,38 +88,37 @@ type (
 	}
 )
 
-// Add a new menu to `m.Items`.
+// Add a new Menu to `m.Items`.
 //
-// Returns a pointer to the new menu.
+// Returns a pointer to the new Menu.
 //
-// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.SelectBGColor`, `tui.Defaults.ValueColor` before creating menus.
+// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.ValueColor` before creating Menus.
 //
-// To set default alignment set `tui.Defaults.Align` before creating menus.
-func (m *menu) NewMenu(name string) *menu {
-	mn := &menu{
-		mm:            m.mm,
-		name:          name,
-		BackText:      "Back",
-		Color:         Defaults.Color,
-		AccentColor:   Defaults.AccentColor,
-		SelectColor:   Defaults.SelectColor,
-		SelectBGColor: Defaults.SelectBGColor,
-		ValueColor:    Defaults.ValueColor,
-		Align:         Defaults.Align,
-		Items:         []Item{},
-		selected:      0,
-		back:          m,
+// To set default alignment set `tui.Defaults.Align` before creating Menus.
+func (m *Menu) NewMenu(name string) *Menu {
+	mn := &Menu{
+		mm:          m.mm,
+		name:        name,
+		BackText:    "Back",
+		Color:       Defaults.Color,
+		AccentColor: Defaults.AccentColor,
+		SelectColor: Defaults.SelectColor,
+		ValueColor:  Defaults.ValueColor,
+		Align:       Defaults.Align,
+		Items:       []Item{},
+		selected:    0,
+		back:        m,
 	}
 	m.Items = append(m.Items, mn)
 	return mn
 }
 
-func (m *menu) String() string { return m.name }
-func (m *menu) Value() string  { return "" }
-func (m *menu) Type() string   { return "menu" }
-func (m *menu) Editing() bool  { return false }
+func (m *Menu) String() string { return m.name }
+func (m *Menu) Value() string  { return "" }
+func (m *Menu) Type() string   { return "menu" }
+func (m *Menu) Editing() bool  { return false }
 
-func (m *menu) Enter() error {
+func (m *Menu) Enter() error {
 	_ = m.mm.rdr.Render()
 	for {
 		in := make([]byte, 3)
@@ -141,7 +139,7 @@ func (m *menu) Enter() error {
 		} else if slices.ContainsFunc(KeyBinds.Right, func(v keybind) bool { return slices.Equal(v, in) }) {
 			if m.selected < len(m.Items) && m.selected >= 0 {
 				if m.Items[m.selected].Type() == "menu" {
-					m.mm.cur = m.Items[m.selected].(*menu)
+					m.mm.cur = m.Items[m.selected].(*Menu)
 					return nil
 				}
 				err := m.Items[m.selected].Enter()
@@ -166,7 +164,7 @@ func (m *menu) Enter() error {
 
 			if m.selected < len(m.Items) && m.selected >= 0 {
 				if m.Items[m.selected].Type() == "menu" {
-					m.mm.cur = m.Items[m.selected].(*menu)
+					m.mm.cur = m.Items[m.selected].(*Menu)
 					return nil
 				}
 				err := m.Items[m.selected].Enter()
@@ -187,7 +185,7 @@ func (m *menu) Enter() error {
 // Only characters in `chars` can be present in `value`.
 //
 // Returns a pointer to the new value.
-func (m *menu) NewText(name string, chars charSet, value string) *text {
+func (m *Menu) NewText(name string, chars charSet, value string) *text {
 	opt := &text{
 		mm:      m.mm,
 		name:    name,
@@ -246,7 +244,7 @@ func (v *text) Enter() error {
 // `callback` is called when this actions is selected.
 //
 // Returns a pointer to the new action.
-func (m *menu) NewAction(name string, callback func()) *action {
+func (m *Menu) NewAction(name string, callback func()) *action {
 	act := &action{
 		mm:       m.mm,
 		name:     name,
@@ -271,7 +269,7 @@ func (a *action) Enter() error {
 // Only options in `values` can be selected.
 //
 // Returns a pointer to the new list.
-func (m *menu) NewList(name string, values []string) *list {
+func (m *Menu) NewList(name string, values []string) *list {
 	lst := &list{
 		mm:       m.mm,
 		name:     name,
@@ -356,7 +354,7 @@ func (l *list) Enter() error {
 // `value` can only be between or equal to `d.minimal` and `d.maximal`.
 //
 // Returns a pointer to the new list.
-func (m *menu) NewDigit(name string, value int, minimal int, maximal int) *digit {
+func (m *Menu) NewDigit(name string, value int, minimal int, maximal int) *digit {
 	dgt := &digit{
 		mm:      m.mm,
 		name:    name,
@@ -416,7 +414,7 @@ func (d *digit) Enter() error {
 			continue
 		}
 
-		if strings.ContainsAny(string(CharSets.Digits), string(in[:])) {
+		if strings.ContainsAny(string(Digits), string(in[:])) {
 			v, err := strconv.Atoi(strconv.Itoa(d.value) + string(bytes.Trim(in, "\x00")[:]))
 			if err != nil {
 				d.editing = false
@@ -437,7 +435,7 @@ func (d *digit) Enter() error {
 // `value` must be a valid IPv4 address.
 //
 // Returns a pointer to the new list.
-func (m *menu) NewIPv4(name string, value string) *ipv4 {
+func (m *Menu) NewIPv4(name string, value string) *ipv4 {
 	ip4 := &ipv4{
 		mm:       m.mm,
 		name:     name,
@@ -511,7 +509,7 @@ func (p *ipv4) Enter() error {
 			continue
 		}
 
-		if strings.ContainsAny(string(CharSets.Digits), string(in[:])) {
+		if strings.ContainsAny(string(Digits), string(in[:])) {
 			v, err := strconv.Atoi(strconv.Itoa(int(p.value[p.selected])) + string(bytes.Trim(in, "\x00")[:]))
 			if err != nil {
 				p.editing = false
@@ -540,7 +538,7 @@ func (p *ipv4) Enter() error {
 // `value` must be a valid IPv4 address.
 //
 // Returns a pointer to the new list.
-func (m *menu) NewIPv6(name string, value string) *ipv6 {
+func (m *Menu) NewIPv6(name string, value string) *ipv6 {
 	ip4 := &ipv6{
 		mm:       m.mm,
 		name:     name,
@@ -591,7 +589,7 @@ func (p *ipv6) Enter() error {
 			p.value[p.selected], p.value[p.selected+1] = v[0], v[1]
 			_ = p.mm.rdr.Render()
 			continue
-		} else if strings.ContainsAny(string(CharSets.Hex), string(in[:])) {
+		} else if strings.ContainsAny(string(Hex), string(in[:])) {
 			vStr := strings.Replace(hex.EncodeToString(p.value[p.selected:p.selected+2])+string(bytes.Trim(in, "\x00")[:]), "0", "", 1)
 			if len(vStr) > 4 {
 				// vStr = "ffff"
