@@ -12,37 +12,40 @@ import (
 	"golang.org/x/term"
 )
 
-type renderer interface {
-	// Render the current menu of the hooked main menu.
-	Render() error
-	// Set the statusline.
-	StatusLine(string)
-	// Clear the screen.
-	Clear() error
-	// Hook a main menu to the renderer, this is required before calling `rdr.Render`
-	HookMainMenu(*MainMenu)
-}
+type (
+	Renderer interface {
+		// Gets called when a rerender is required.
+		Render() error
+		// Gets called when the status line should be updated.
+		Clear() error
+		// Gets called before any calls to `rdr.Render` to hook into the current `MainMenu`.
+		HookMainMenu(*MainMenu)
+	}
 
-type Basic struct {
-	mm         *MainMenu
-	trm        *term.Terminal
-	statusline string
-}
+	rendererBasic struct {
+		mm  *MainMenu
+		trm *term.Terminal
+	}
+	rendererBig struct {
+		mm               *MainMenu
+		trm              *term.Terminal
+		renderBigCharMap map[rune][][2]int
+	}
+)
 
 // A basic renderer
-func NewBasic() *Basic {
-	return &Basic{
+func newRendererBasic() *rendererBasic {
+	return &rendererBasic{
 		mm: nil,
 		trm: term.NewTerminal(struct {
 			io.Reader
 			io.Writer
 		}{os.Stdin, os.Stdout}, ""),
-		statusline: "",
 	}
 }
 
 // Render the current menu of the hooked main menu.
-func (rdr *Basic) Render() error {
+func (rdr *rendererBasic) Render() error {
 	if rdr.mm == nil {
 		return Errors.MainMenuNotHooked
 	}
@@ -105,40 +108,29 @@ func (rdr *Basic) Render() error {
 
 	lines = append(lines, getLine("", "◀ ", rdr.mm.cur.BackText, rdr.mm.cur.selected >= len(rdr.mm.cur.Items), rdr.mm.cur.selected >= len(rdr.mm.cur.Items)))
 
-	if _, err := rdr.trm.Write(slices.Concat([]byte("\033[2J\033[0;0H"), bytes.Join(lines[:min(len(lines), y-1)], []byte("\r\n")), []byte("\033["+strconv.Itoa(y)+";0H"+rdr.statusline[:min(len(rdr.statusline), x-1)]))); err != nil {
+	if _, err := rdr.trm.Write(slices.Concat([]byte("\033[2J\033[0;0H"), bytes.Join(lines[:min(len(lines), y-1)], []byte("\r\n")), []byte("\033["+strconv.Itoa(y)+";0H"+rdr.mm.statusline[:min(len(rdr.mm.statusline), x-1)]))); err != nil {
 		return err
 	}
 	return nil
 }
 
-// Set the statusline.
-func (rdr *Basic) StatusLine(str string) { rdr.statusline = str }
-
 // Clear the screen.
-func (rdr *Basic) Clear() error {
+func (rdr *rendererBasic) Clear() error {
 	_, err := rdr.trm.Write([]byte("\033[2J\033[0;0H"))
 	return err
 }
 
 // Hook a main menu to the renderer, this is required before calling `rdr.Render`
-func (rdr *Basic) HookMainMenu(mm *MainMenu) { rdr.mm = mm }
-
-type Big struct {
-	mm               *MainMenu
-	trm              *term.Terminal
-	statusline       string
-	renderBigCharMap map[rune][][2]int
-}
+func (rdr *rendererBasic) HookMainMenu(mm *MainMenu) { rdr.mm = mm }
 
 // A bulky renderer
-func NewBulky() *Big {
-	return &Big{
+func newRendererBulky() *rendererBig {
+	return &rendererBig{
 		mm: nil,
 		trm: term.NewTerminal(struct {
 			io.Reader
 			io.Writer
 		}{os.Stdin, os.Stdout}, ""),
-		statusline: "",
 
 		//	r := [][2]int{
 		//		{0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0},
@@ -222,7 +214,7 @@ func NewBulky() *Big {
 }
 
 // Render the current menu of the hooked main menu.
-func (rdr *Big) Render() error {
+func (rdr *rendererBig) Render() error {
 	if rdr.mm == nil {
 		return Errors.MainMenuNotHooked
 	}
@@ -354,20 +346,17 @@ func (rdr *Big) Render() error {
 
 	lines = append(lines, getLines("", "< ", rdr.mm.cur.BackText, rdr.mm.cur.selected >= len(rdr.mm.cur.Items), rdr.mm.cur.selected >= len(rdr.mm.cur.Items))...)
 
-	if _, err := rdr.trm.Write(slices.Concat([]byte("\033[2J\033[0;0H"), bytes.Join(lines[:min(len(lines), y-1)], []byte("\r\n")), []byte("\033["+strconv.Itoa(y)+";0H"+rdr.statusline[:min(len(rdr.statusline), (x*12)-1)]))); err != nil {
+	if _, err := rdr.trm.Write(slices.Concat([]byte("\033[2J\033[0;0H"), bytes.Join(lines[:min(len(lines), y-1)], []byte("\r\n")), []byte("\033["+strconv.Itoa(y)+";0H"+rdr.mm.statusline[:min(len(rdr.mm.statusline), (x*12)-1)]))); err != nil {
 		return err
 	}
 	return nil
 }
 
-// Set the statusline.
-func (rdr *Big) StatusLine(str string) { rdr.statusline = str }
-
 // Clear the screen.
-func (rdr *Big) Clear() error {
+func (rdr *rendererBig) Clear() error {
 	_, err := rdr.trm.Write([]byte("\033[2J\033[0;0H"))
 	return err
 }
 
 // Hook a main menu to the renderer, this is required before calling `rdr.Render`
-func (rdr *Big) HookMainMenu(mm *MainMenu) { rdr.mm = mm }
+func (rdr *rendererBig) HookMainMenu(mm *MainMenu) { rdr.mm = mm }

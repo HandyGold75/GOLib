@@ -34,11 +34,12 @@ type (
 	charSet  string
 
 	MainMenu struct {
-		Menu   *menu
-		cur    *menu
-		rdr    renderer
-		exit   chan error
-		active bool
+		Menu       *menu
+		statusline string
+		cur        *menu
+		rdr        Renderer
+		exit       chan error
+		active     bool
 	}
 )
 
@@ -136,11 +137,10 @@ var (
 // To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.SelectBGColor`, `tui.Defaults.ValueColor` before creating menus.
 //
 // To set default alignment set `tui.Defaults.Align` before creating menus.
-func NewMenu(name string, rdr renderer) (*MainMenu, error) {
+func NewMenu(name string, rdr Renderer) (*MainMenu, error) {
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
 		return nil, Errors.NotATerm
 	}
-
 	mn := &menu{
 		mm:            nil,
 		name:          name,
@@ -151,16 +151,17 @@ func NewMenu(name string, rdr renderer) (*MainMenu, error) {
 		SelectBGColor: Defaults.SelectBGColor,
 		ValueColor:    Defaults.ValueColor,
 		Align:         Defaults.Align,
-		Items:         []item{},
+		Items:         []Item{},
 		selected:      0,
 		back:          nil,
 	}
 	main := &MainMenu{
-		Menu:   mn,
-		cur:    mn,
-		rdr:    rdr,
-		exit:   make(chan error),
-		active: false,
+		Menu:       mn,
+		statusline: "",
+		cur:        mn,
+		rdr:        rdr,
+		exit:       make(chan error),
+		active:     false,
 	}
 	mn.mm = main
 	rdr.HookMainMenu(main)
@@ -168,7 +169,7 @@ func NewMenu(name string, rdr renderer) (*MainMenu, error) {
 	return main, nil
 }
 
-// Get a new main menu with the basic renderer.
+// Get a new main menu with a basic renderer.
 //
 // Only 1 main menu should be active (started) at a time.
 //
@@ -176,10 +177,10 @@ func NewMenu(name string, rdr renderer) (*MainMenu, error) {
 //
 // To set default alignment set `tui.Defaults.Align` before creating menus.
 func NewMenuBasic(title string) (*MainMenu, error) {
-	return NewMenu(title, NewBasic())
+	return NewMenu(title, newRendererBasic())
 }
 
-// Get a new main menu with the bulky renderer.
+// Get a new main menu with a bulky renderer.
 //
 // Only 1 main menu should be active (started) at a time.
 //
@@ -187,15 +188,15 @@ func NewMenuBasic(title string) (*MainMenu, error) {
 //
 // To set default alignment set `tui.Defaults.Align` before creating menus.
 func NewMenuBulky(title string) (*MainMenu, error) {
-	return NewMenu(title, NewBulky())
+	return NewMenu(title, newRendererBulky())
 }
 
 // Set the statusline.
 //
 // Will cause a rerender of the current menu.
 func (mm *MainMenu) StatusLine(status string) {
-	mm.rdr.StatusLine(status)
-	mm.rdr.Render()
+	mm.statusline = status
+	_ = mm.rdr.Render()
 }
 
 // Start tui, this will render and handle user input in a goroutine.
@@ -226,7 +227,7 @@ func (mm *MainMenu) Start(state *term.State) error {
 
 		_ = mm.rdr.Render()
 		for {
-			err := mm.cur.enter()
+			err := mm.cur.Enter()
 			if err != nil {
 				if err == Errors.exit {
 					break
