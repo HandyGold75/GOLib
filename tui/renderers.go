@@ -12,10 +12,15 @@ import (
 )
 
 type (
+	// The Renderer interface may be parsed to a MainMenu to be used as Renderer.
+	//
+	// The MainMenu is reponsible for all logic while the Renderer is responseble for visializing the MainMenu.
+	//
+	// The MainMenu should always call HookMainMenu first to allow the Renderer to hook into the MainMenu.
 	Renderer interface {
-		// Gets called when a rerender is required.
+		// Gets called when a rerender is requested.
 		Render() error
-		// Gets called when the status line should be updated.
+		// Gets called when screen clear is requested.
 		Clear() error
 		// Gets called before any calls to `rdr.Render` to hook into the current `MainMenu`.
 		HookMainMenu(*MainMenu)
@@ -32,7 +37,6 @@ type (
 	}
 )
 
-// A basic renderer
 func newRendererBasic() *rendererBasic {
 	return &rendererBasic{
 		mm: nil,
@@ -43,7 +47,6 @@ func newRendererBasic() *rendererBasic {
 	}
 }
 
-// Render the current menu of the hooked main menu.
 func (rdr *rendererBasic) Render() error {
 	if rdr.mm == nil {
 		return Errors.MainMenuNotHooked
@@ -113,16 +116,13 @@ func (rdr *rendererBasic) Render() error {
 	return nil
 }
 
-// Clear the screen.
 func (rdr *rendererBasic) Clear() error {
 	_, err := rdr.trm.Write([]byte("\033[2J\033[0;0H"))
 	return err
 }
 
-// Hook a main menu to the renderer, this is required before calling `rdr.Render`
 func (rdr *rendererBasic) HookMainMenu(mm *MainMenu) { rdr.mm = mm }
 
-// A bulky renderer
 func newRendererBulky() *rendererBulky {
 	return &rendererBulky{
 		mm: nil,
@@ -212,7 +212,6 @@ func newRendererBulky() *rendererBulky {
 	}
 }
 
-// Render the current menu of the hooked main menu.
 func (rdr *rendererBulky) Render() error {
 	if rdr.mm == nil {
 		return Errors.MainMenuNotHooked
@@ -342,7 +341,6 @@ func (rdr *rendererBulky) Render() error {
 	return nil
 }
 
-// Clear the screen.
 func (rdr *rendererBulky) Clear() error {
 	_, err := rdr.trm.Write([]byte("\033[2J\033[0;0H"))
 	return err

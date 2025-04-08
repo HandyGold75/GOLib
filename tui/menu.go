@@ -11,7 +11,12 @@ import (
 )
 
 type (
-	Item interface {
+	// The MenuItem interface is (part of) the Menu.
+	//
+	// The MenuItem is responseble for storing, modifing, reporting or executing values/ functions.
+	//
+	// Control may be taken over by a MenuItem altough it should always have a path to return control.
+	MenuItem interface {
 		// Get the name of the item.
 		String() string
 
@@ -32,6 +37,7 @@ type (
 		Enter() error
 	}
 
+	// TODO: Document
 	Menu struct {
 		mm          *MainMenu
 		name        string
@@ -41,10 +47,11 @@ type (
 		SelectColor color
 		ValueColor  color
 		Align       align
-		Items       []Item
+		Items       []MenuItem
 		selected    int
 		back        *Menu
 	}
+
 	text struct {
 		mm      *MainMenu
 		name    string
@@ -105,7 +112,7 @@ func (m *Menu) NewMenu(name string) *Menu {
 		SelectColor: Defaults.SelectColor,
 		ValueColor:  Defaults.ValueColor,
 		Align:       Defaults.Align,
-		Items:       []Item{},
+		Items:       []MenuItem{},
 		selected:    0,
 		back:        m,
 	}
