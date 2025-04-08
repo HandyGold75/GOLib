@@ -22,6 +22,7 @@ type (
 	keybinds struct{ Up, Down, Right, Left, Exit, Numbers, Confirm, Delete []keybind }
 	keybind  []byte
 
+	// TODO: Document
 	MainMenu struct {
 		Menu       *Menu
 		statusline string
@@ -95,6 +96,7 @@ const (
 )
 
 var (
+	// TODO: Document
 	Errors = tuiErrors{
 		NotATerm:          errors.New("stdin/ stdout should be a terminal"),
 		TuiStarted:        errors.New("tui is already Started"),
@@ -104,6 +106,7 @@ var (
 		exit: errors.New("tui is exiting"),
 	}
 
+	// TODO: Document
 	Defaults = defaults{
 		Color:       White,
 		AccentColor: Yellow,
@@ -112,6 +115,7 @@ var (
 		Align:       AlignMiddle,
 	}
 
+	// TODO: Document
 	KeyBinds = keybinds{
 		Up:      []keybind{{119, 0, 0}, {107, 0, 0}, {27, 91, 65}, {43, 0, 0}},                                                                     // W, K, UP
 		Down:    []keybind{{115, 0, 0}, {106, 0, 0}, {27, 91, 66}, {45, 0, 0}},                                                                     // S, J, DOWN
@@ -146,7 +150,7 @@ func NewMenu(name string, rdr Renderer) (*MainMenu, error) {
 		SelectColor: Defaults.SelectColor,
 		ValueColor:  Defaults.ValueColor,
 		Align:       Defaults.Align,
-		Items:       []Item{},
+		Items:       []MenuItem{},
 		selected:    0,
 		back:        nil,
 	}
