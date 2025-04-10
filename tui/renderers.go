@@ -100,7 +100,7 @@ func (rdr *rendererBasic) Render() error {
 	for i, itm := range rdr.mm.cur.Items {
 		switch itm.Type() {
 		case "menu":
-			lines = append(lines, getLine(itm.String(), " 🞂", "", rdr.mm.cur.selected == i, false))
+			lines = append(lines, getLine(itm.String(), " ▶", "", rdr.mm.cur.selected == i, false))
 		case "text", "list", "digit", "ipv4", "ipv6":
 			lines = append(lines, getLine(itm.String(), " ▷ ", itm.Value(), rdr.mm.cur.selected == i, itm.Editing()))
 		default:
