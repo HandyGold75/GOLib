@@ -99,7 +99,7 @@ type (
 //
 // Returns a pointer to the new Menu.
 //
-// To set default colors set `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.ValueColor` before creating Menus.
+// To set default colors configure `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.ValueColor` before creating menus.
 //
 // To set default alignment set `tui.Defaults.Align` before creating Menus.
 func (m *Menu) NewMenu(name string) *Menu {

@@ -4,34 +4,21 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strconv"
 	"time"
-
-	"golang.org/x/term"
 )
 
 type (
 	Scedule struct {
-		// Months of the year: 1 - 12
-		Months []int
-
-		// Weeks of the month: 1 - 5
-		Weeks []int
-
-		// Days of the week: 0 - 6 (Sunday first day of the week)
-		Days []int
-
-		// Hours of the day: 0 - 23
-		Hours []int
-
-		// Minutes of the hour: 0 - 59
-		Minutes []int
+		Months  []int // Months of the year: `1 - 12`
+		Weeks   []int // Weeks of the month: `1 - 5`
+		Days    []int // Days of the week: `0 - 6` (Sunday first day of the week)
+		Hours   []int // Hours of the day: `0 - 23`
+		Minutes []int // Minutes of the hour: `0 - 59`
 	}
 
 	errScheduler struct{ ErrInvalidMonths, ErrInvalidWeeks, ErrInvalidDays, ErrInvalidHours, ErrInvalidMinutes, ErrResolveMonth, ErrResolveWeek, ErrResolveDay, ErrResolveHour, ErrResolveMinute error }
 )
 
-// All errors that can be raised by scheduler
 var ErrScheduler = errScheduler{
 	ErrInvalidMonths:  errors.New("invalid value in months, valid values are [1-12]"),
 	ErrInvalidWeeks:   errors.New("invalid value in weeks, valid values are [1-5]"),
@@ -206,7 +193,9 @@ func SetNextTime(t *time.Time, scedule *Scedule) error {
 	return nil
 }
 
-// Sleep for dur and print time remaining every interval
+// Sleep for a minimum of `dur`.
+//
+// If `msg` is not empty print `msg` + time remaining every `interval`.
 func SleepFor(msg string, dur time.Duration, interval time.Duration) {
 	endTime := time.Now().Add(dur)
 	for {
@@ -215,18 +204,21 @@ func SleepFor(msg string, dur time.Duration, interval time.Duration) {
 		}
 		untilEndTime := time.Until(endTime)
 		if msg != "" {
-			width, _, _ := term.GetSize(0)
-			fmt.Printf("\r%"+strconv.Itoa(width)+"v\r%v%v", "", msg, untilEndTime.Round(interval).String())
-		}
-		if interval < untilEndTime {
-			time.Sleep(interval)
-			continue
+			fmt.Printf("\r\033[0J%v%v", msg, untilEndTime.Round(interval).String())
+			if interval < untilEndTime {
+				time.Sleep(interval)
+				continue
+			}
 		}
 		time.Sleep(untilEndTime)
 	}
 
 	if msg != "" {
-		width, _, _ := term.GetSize(0)
-		fmt.Printf("\r%"+strconv.Itoa(width)+"v\r", "")
+		fmt.Print("\r\033[0J")
 	}
+}
+
+// Short for `SleepFor(msg, time.Until(t), interval)`
+func SleepUntil(msg string, t time.Time, interval time.Duration) {
+	SleepFor(msg, time.Until(t), interval)
 }
