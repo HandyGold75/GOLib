@@ -267,3 +267,11 @@ func (mm *MainMenu) Join() error {
 
 	return e
 }
+
+// Start and join the server in one go, this will block until the user finishes.
+func (mm *MainMenu) Run() error {
+	if err := mm.Start(nil); err != nil {
+		return nil
+	}
+	return mm.Join()
+}
