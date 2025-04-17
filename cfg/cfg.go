@@ -11,7 +11,7 @@ import (
 // If config file is not present then it tries creating it with content of data.
 //
 // Config file is stored in `./golib/<name>.json` relative to `os.UserConfigDir`.
-func Load(name, data string) error {
+func Load(name string, data any) error {
 	file, err := os.UserConfigDir()
 	if err != nil {
 		return err
@@ -24,7 +24,7 @@ func Load(name, data string) error {
 // If config file is not present then it tries creating it with content of data.
 //
 // Config file is stored in `./<name>.json` relative to `os.Executable`.
-func LoadRel(name, data string) error {
+func LoadRel(name string, data any) error {
 	file, err := os.Executable()
 	if err != nil {
 		return err
@@ -68,7 +68,7 @@ func LoadAbs(file string, data any) error {
 // If config file is not present then it tries creating it with content of data.
 //
 // Config file is stored in `./golib/<name>.json` relative to `os.UserConfigDir`.
-func Dump(name, data string) error {
+func Dump(name string, data any) error {
 	file, err := os.UserConfigDir()
 	if err != nil {
 		return err
@@ -81,7 +81,7 @@ func Dump(name, data string) error {
 // If config file is not present then it tries creating it with content of data.
 //
 // Config file is stored in `./<name>.json` relative to `os.Executable`.
-func DumpRel(name, data string) error {
+func DumpRel(name string, data any) error {
 	file, err := os.Executable()
 	if err != nil {
 		return err
