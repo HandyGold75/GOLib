@@ -44,7 +44,7 @@ func LoadAbs(file string, data any) error {
 		if err != nil {
 			return err
 		}
-		bytes, err := json.MarshalIndent(data, "", "\t")
+		bytes, err = json.MarshalIndent(data, "", "\t")
 		if err != nil {
 			return err
 		}
