@@ -137,10 +137,7 @@ var (
 // To set default colors configure `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.ValueColor` before creating menus.
 //
 // To set default alignment configure `tui.Defaults.Align` before creating menus.
-func NewMenu(name string, rdr Renderer) (*MainMenu, error) {
-	if !term.IsTerminal(int(os.Stdin.Fd())) {
-		return nil, Errors.NotATerm
-	}
+func NewMenu(name string, rdr Renderer) *MainMenu {
 	mn := &Menu{
 		mm:          nil,
 		name:        name,
@@ -165,7 +162,7 @@ func NewMenu(name string, rdr Renderer) (*MainMenu, error) {
 	mn.mm = main
 	rdr.HookMainMenu(main)
 
-	return main, nil
+	return main
 }
 
 // Get a new main menu with a basic renderer.
@@ -175,7 +172,7 @@ func NewMenu(name string, rdr Renderer) (*MainMenu, error) {
 // To set default colors configure `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.ValueColor` before creating menus.
 //
 // To set default alignment configure `tui.Defaults.Align` before creating menus.
-func NewMenuBasic(title string) (*MainMenu, error) {
+func NewMenuBasic(title string) *MainMenu {
 	return NewMenu(title, newRendererBasic())
 }
 
@@ -186,7 +183,7 @@ func NewMenuBasic(title string) (*MainMenu, error) {
 // To set default colors configure `tui.Defaults.Color`, `tui.Defaults.AccentColor`, `tui.Defaults.SelectColor`, `tui.Defaults.ValueColor` before creating menus.
 //
 // To set default alignment configure `tui.Defaults.Align` before creating menus.
-func NewMenuBulky(title string) (*MainMenu, error) {
+func NewMenuBulky(title string) *MainMenu {
 	return NewMenu(title, newRendererBulky())
 }
 
@@ -210,6 +207,9 @@ func (mm *MainMenu) StatusLine(status string) {
 //
 // `mm.Join` should always be called to ensure the goroutine joins back.
 func (mm *MainMenu) Start(state *term.State) error {
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		return Errors.NotATerm
+	}
 	if mm.active {
 		return Errors.TuiStarted
 	}
