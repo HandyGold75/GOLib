@@ -1,7 +1,9 @@
 go 1.24.2
 
 use (
+	.
 	./argp
+	./cfg
 	./logger
 	./main
 	./pbar
