@@ -351,4 +351,47 @@ func Parse[T any](s T, args []string) T {
 }
 
 // Short for `argp.Parse(s, os.Args[1:])`
+//
+// Parses args into s. Panics if s is not of type struct or a public field doesn't contain a switch tag. Private struct fields are ignored.
+// Runs args.HelpMenu and exits gracefully if user input is invalid.
+//
+// Struct format:
+//
+//	struct { Field type `tag:"value"` }
+//
+// Supported types:
+//
+//	string, bool, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr, float32, float64
+//
+// Available tags:
+//
+//	switch:  List of switches that can map to this field (Required).
+//	prefix:  Prefix for the switches (Default: "-").
+//	opts:    Optional parameters [posistional,required,help].
+//	default: Optional default value.
+//	help:    Help message.
+//
+// Opts:
+//
+//	posistional: Field will be assigned using the first argument without a switch or prefix.
+//	             Needs to be last in the struct, this is to ensure no value arguments are taken from other switches in cases " " is used to seperate key and value arguments.
+//	             As a special case the type of a posistional may be []string to populate this filed with left over arguments, in this case the tags switch, prefix and default wil be ignored and order in stuct non-important.
+//	required:    Field will be required, shows help menu if missing, if a default is given required is ignored.
+//	help:        Quick opt for help menu implementation, when a switch from this field is present `args.HelpMenu` gets called followed by `os.Exit(0)`.
+//	             Needs to be first in the struct, this is to ensure the help menu is show when a help switch is present in cases a panic is trow by other switches.
+//	             The help tag message provided becomes the decription of the executable.
+//
+// Example:
+//
+//	args struct {
+//		Help   bool     `switch:"h,-help"   opts:"help" help:"Some help for exec."`
+//		FieldF []string `opts:"posistional,required"`
+//		FieldA float64  `switch:"a"         prefix:"/" help:"Some help for e."`
+//		FieldB bool     `switch:"b"`
+//		FieldC int      `switch:"c,-cc"     default:"5"`
+//		FieldD uint     `switch:"d,-dd-ddd" default:"7" opts:"required"`
+//		FieldE string   `switch:"e,-ee"     opts:"posistional"`
+//	}
+//
+// Usage: exec -a=-1.1 -bc 10 --dd-ddd=2 /e "some message"
 func ParseArgs[T any](s T) T { return Parse(s, os.Args[1:]) }
