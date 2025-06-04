@@ -23,7 +23,7 @@ func expandArgs[T any](s *T, args []string) []string {
 		if !slices.Contains(allPrefixes, prefix) {
 			allPrefixes = append(allPrefixes, prefix)
 		}
-		for _, swt := range strings.Split(field.Tag.Get("switch"), ",") {
+		for swt := range strings.SplitSeq(field.Tag.Get("switch"), ",") {
 			allSwitches = append(allSwitches, prefix+swt)
 		}
 	})
@@ -44,8 +44,8 @@ func expandArgs[T any](s *T, args []string) []string {
 			continue
 		}
 
-		newArgs := append([]string{}, args[:i]...) // Deepcopy
-		for _, a := range strings.Split(strings.Replace(args[i], prefix, "", 1), "") {
+		newArgs := slices.Clone(args[:i])
+		for a := range strings.SplitSeq(strings.Replace(args[i], prefix, "", 1), "") {
 			newArgs = append(newArgs, prefix+a)
 		}
 		args = append(newArgs, args[i+1:]...)
@@ -81,7 +81,7 @@ func parseArgs[T any](s *T, args []string) []string {
 		}
 
 		index := -1
-		for _, swt := range strings.Split(field.Tag.Get("switch"), ",") {
+		for swt := range strings.SplitSeq(field.Tag.Get("switch"), ",") {
 			index = slices.IndexFunc(args, func(a string) bool { return a == prefix+swt || strings.HasPrefix(a, prefix+swt+"=") })
 			if index > -1 {
 				if slices.Contains(strings.Split(field.Tag.Get("opts"), ","), "help") {
@@ -197,7 +197,7 @@ func forEachStructField[T any](s *T, handler func(reflect.StructField, reflect.V
 		panic("s is not a stuct")
 	}
 
-	for i := 0; i < tOf.NumField(); i++ {
+	for i := range tOf.NumField() {
 		tOfField := tOf.Field(i)
 		vOfField := vOf.Field(i)
 		if !vOfField.CanSet() {
@@ -233,7 +233,7 @@ func HelpMenu[T any](s T, details bool) {
 		}
 
 		swts := ""
-		for _, swt := range strings.Split(field.Tag.Get("switch"), ",") {
+		for swt := range strings.SplitSeq(field.Tag.Get("switch"), ",") {
 			swts += " " + prefix + swt
 		}
 

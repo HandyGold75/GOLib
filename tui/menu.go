@@ -37,7 +37,11 @@ type (
 		Enter() error
 	}
 
-	// TODO: Document
+	// Menu is a MenuItem interface.
+	//
+	// The MenuItem is responseble for storing, modifing, reporting or executing values/ functions.
+	//
+	// Control may be taken over by a MenuItem altough it should always have a path to return control.
 	Menu struct {
 		mm          *MainMenu
 		name        string

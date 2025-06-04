@@ -22,7 +22,11 @@ type (
 	keybinds struct{ Up, Down, Right, Left, Exit, Numbers, Confirm, Delete []keybind }
 	keybind  []byte
 
-	// TODO: Document
+	// The MainMenu is responseble for creating and managing MenuItems.
+	//
+	// The first MenuItem is always a plain Menu.
+	//
+	// Control may be taken over by a MenuItem altough it should always have a path to return control.
 	MainMenu struct {
 		Menu       *Menu
 		statusline string
@@ -96,7 +100,9 @@ const (
 )
 
 var (
-	// TODO: Document
+	// Tui specific errors.
+	//
+	// Note that errors returned are not limited to these errors.
 	Errors = tuiErrors{
 		NotATerm:          errors.New("stdin/ stdout should be a terminal"),
 		TuiStarted:        errors.New("tui is already Started"),
@@ -106,7 +112,9 @@ var (
 		exit: errors.New("tui is exiting"),
 	}
 
-	// TODO: Document
+	// Default colors.
+	//
+	// Updating these values will not update colors of already created menus.
 	Defaults = defaults{
 		Color:       White,
 		AccentColor: Yellow,
@@ -115,7 +123,7 @@ var (
 		Align:       AlignMiddle,
 	}
 
-	// TODO: Document
+	// Keybinds used by the user to navigated the tui.
 	KeyBinds = keybinds{
 		// W, K, UP, PLUS
 		Up: []keybind{{119, 0, 0}, {107, 0, 0}, {27, 91, 65}, {43, 0, 0}},

@@ -58,7 +58,7 @@ func setNextTimeByMonth(t *time.Time, months []int) error {
 	}
 
 	offset := 0
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		for _, possibleTargetMonth := range months {
 			if possibleTargetMonth < currentMonth {
 				continue
@@ -66,11 +66,9 @@ func setNextTimeByMonth(t *time.Time, months []int) error {
 			*t = t.AddDate(0, (possibleTargetMonth+offset)-currentMonth, 0)
 			return nil
 		}
-
 		offset += 13 - currentMonth
 		currentMonth = 1
 	}
-
 	return ErrScheduler.ErrResolveMonth
 }
 
@@ -81,7 +79,7 @@ func setNextTimeByWeek(t *time.Time, weeks []int) error {
 	}
 
 	offset := 0
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		for _, possibleTargetWeek := range weeks {
 			if possibleTargetWeek < currentWeek {
 				continue
@@ -89,11 +87,9 @@ func setNextTimeByWeek(t *time.Time, weeks []int) error {
 			*t = t.AddDate(0, 0, ((possibleTargetWeek+offset)-currentWeek)*7)
 			return nil
 		}
-
 		offset = 6 - currentWeek
 		currentWeek = 1
 	}
-
 	return ErrScheduler.ErrResolveWeek
 }
 
@@ -104,7 +100,7 @@ func setNextTimeByDay(t *time.Time, days []int) error {
 	}
 
 	offset := 0
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		for _, possibleTargetDay := range days {
 			if possibleTargetDay < currentDay {
 				continue
@@ -112,11 +108,9 @@ func setNextTimeByDay(t *time.Time, days []int) error {
 			*t = t.AddDate(0, 0, (possibleTargetDay+offset)-currentDay)
 			return nil
 		}
-
 		offset = 8 - currentDay
 		currentDay = 1
 	}
-
 	return ErrScheduler.ErrResolveDay
 }
 
@@ -127,7 +121,7 @@ func setNextTimeByHour(t *time.Time, hours []int) error {
 	}
 
 	offset := 0
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		for _, possibleTargetHour := range hours {
 			if possibleTargetHour < currentHour {
 				continue
@@ -135,11 +129,9 @@ func setNextTimeByHour(t *time.Time, hours []int) error {
 			*t = t.Add(time.Hour * time.Duration((possibleTargetHour+offset)-currentHour))
 			return nil
 		}
-
 		offset = 24 - currentHour
 		currentHour = 0
 	}
-
 	return ErrScheduler.ErrResolveHour
 }
 
@@ -150,7 +142,7 @@ func setNextTimeByMinute(t *time.Time, minutes []int) error {
 	}
 
 	offset := 0
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		for _, possibleTargetMinute := range minutes {
 			if possibleTargetMinute < currentMinute {
 				continue
@@ -158,11 +150,9 @@ func setNextTimeByMinute(t *time.Time, minutes []int) error {
 			*t = t.Add(time.Minute * time.Duration((possibleTargetMinute+offset)-currentMinute))
 			return nil
 		}
-
 		offset = 60 - currentMinute
 		currentMinute = 0
 	}
-
 	return ErrScheduler.ErrResolveMinute
 }
 
@@ -189,7 +179,6 @@ func SetNextTime(t *time.Time, scedule *Scedule) error {
 	if err := setNextTimeByMonth(t, scedule.Months); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -198,10 +187,7 @@ func SetNextTime(t *time.Time, scedule *Scedule) error {
 // If `msg` is not empty print `msg` + time remaining every `interval`.
 func SleepFor(msg string, dur time.Duration, interval time.Duration) {
 	endTime := time.Now().Add(dur)
-	for {
-		if endTime.Before(time.Now()) {
-			break
-		}
+	for endTime.Before(time.Now()) {
 		untilEndTime := time.Until(endTime)
 		if msg != "" {
 			fmt.Printf("\r\033[0J%v%v", msg, untilEndTime.Round(interval).String())
