@@ -6,11 +6,11 @@ get:
 	go get -u
 	go mod tidy
 
-	for subdir in *"/"; do \
-		if [ ! -f "$(shell pwd)/$$subdir"go.mod ]; then \
+	for subdir in *; do \
+		if [ ! -f "$(shell pwd)/$$subdir/"go.mod ]; then \
 			continue ; \
 		fi ; \
-		cd "$(shell pwd)/$$subdir" ; \
+		cd "$(shell pwd)/$$subdir/" ; \
 		go get go@latest ; \
 		go get -u ; \
 		go mod tidy ; \
