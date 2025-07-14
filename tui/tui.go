@@ -12,8 +12,6 @@ type (
 	align   int
 	charSet string
 
-	tuiErrors struct{ NotATerm, TuiStarted, TuiNotStarted, MainMenuNotHooked, exit error }
-
 	defaults struct {
 		Color, AccentColor, ValueColor, SelectColor color
 		Align                                       align
@@ -103,7 +101,12 @@ var (
 	// Tui specific errors.
 	//
 	// Note that errors returned are not limited to these errors.
-	Errors = tuiErrors{
+	Errors = struct {
+		NotATerm,
+		TuiStarted, TuiNotStarted,
+		MainMenuNotHooked,
+		exit error
+	}{
 		NotATerm:          errors.New("stdin/ stdout should be a terminal"),
 		TuiStarted:        errors.New("tui is already Started"),
 		TuiNotStarted:     errors.New("tui is not yet Started"),
