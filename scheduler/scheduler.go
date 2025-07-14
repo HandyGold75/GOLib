@@ -188,7 +188,7 @@ func SetNextTime(t *time.Time, schedule *Schedule) error {
 // If `msg` is not empty print `msg` + time remaining every `interval`.
 func SleepFor(msg string, dur time.Duration, interval time.Duration) {
 	endTime := time.Now().Add(dur)
-	for endTime.Before(time.Now()) {
+	for time.Now().Before(endTime) {
 		untilEndTime := time.Until(endTime)
 		if msg != "" {
 			fmt.Printf("\r\033[0J%v%v", msg, untilEndTime.Round(interval).String())
