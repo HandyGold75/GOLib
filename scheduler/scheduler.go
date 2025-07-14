@@ -8,7 +8,7 @@ import (
 )
 
 type (
-	Scedule struct {
+	Schedule struct {
 		Months  []int // Months of the year: `1 - 12`
 		Weeks   []int // Weeks of the month: `1 - 5`
 		Days    []int // Days of the week: `0 - 6` (Sunday first day of the week)
@@ -32,20 +32,20 @@ var ErrScheduler = errScheduler{
 	ErrResolveMinute:  errors.New("unable to resolve target minute"),
 }
 
-func verifySceduleData(scedule *Scedule) error {
-	if i := slices.IndexFunc(scedule.Months, func(v int) bool { return v < 1 || v > 12 }); i != -1 {
+func verifyScheduleData(schedule *Schedule) error {
+	if i := slices.IndexFunc(schedule.Months, func(v int) bool { return v < 1 || v > 12 }); i != -1 {
 		return ErrScheduler.ErrInvalidMonths
 	}
-	if i := slices.IndexFunc(scedule.Weeks, func(v int) bool { return v < 1 || v > 5 }); i != -1 {
+	if i := slices.IndexFunc(schedule.Weeks, func(v int) bool { return v < 1 || v > 5 }); i != -1 {
 		return ErrScheduler.ErrInvalidWeeks
 	}
-	if i := slices.IndexFunc(scedule.Days, func(v int) bool { return v < 0 || v > 6 }); i != -1 {
+	if i := slices.IndexFunc(schedule.Days, func(v int) bool { return v < 0 || v > 6 }); i != -1 {
 		return ErrScheduler.ErrInvalidDays
 	}
-	if i := slices.IndexFunc(scedule.Hours, func(v int) bool { return v < 0 || v > 23 }); i != -1 {
+	if i := slices.IndexFunc(schedule.Hours, func(v int) bool { return v < 0 || v > 23 }); i != -1 {
 		return ErrScheduler.ErrInvalidHours
 	}
-	if i := slices.IndexFunc(scedule.Minutes, func(v int) bool { return v < 0 || v > 59 }); i != -1 {
+	if i := slices.IndexFunc(schedule.Minutes, func(v int) bool { return v < 0 || v > 59 }); i != -1 {
 		return ErrScheduler.ErrInvalidMinutes
 	}
 	return nil
@@ -157,26 +157,26 @@ func setNextTimeByMinute(t *time.Time, minutes []int) error {
 }
 
 // Set time of t to next occurence in schedule
-func SetNextTime(t *time.Time, scedule *Scedule) error {
-	if err := verifySceduleData(scedule); err != nil {
+func SetNextTime(t *time.Time, schedule *Schedule) error {
+	if err := verifyScheduleData(schedule); err != nil {
 		return err
 	}
 
 	*t = t.Add(-time.Second*time.Duration(t.Second()) + -time.Nanosecond*time.Duration(t.Nanosecond()))
 
-	if err := setNextTimeByMinute(t, scedule.Minutes); err != nil {
+	if err := setNextTimeByMinute(t, schedule.Minutes); err != nil {
 		return err
 	}
-	if err := setNextTimeByHour(t, scedule.Hours); err != nil {
+	if err := setNextTimeByHour(t, schedule.Hours); err != nil {
 		return err
 	}
-	if err := setNextTimeByDay(t, scedule.Days); err != nil {
+	if err := setNextTimeByDay(t, schedule.Days); err != nil {
 		return err
 	}
-	if err := setNextTimeByWeek(t, scedule.Weeks); err != nil {
+	if err := setNextTimeByWeek(t, schedule.Weeks); err != nil {
 		return err
 	}
-	if err := setNextTimeByMonth(t, scedule.Months); err != nil {
+	if err := setNextTimeByMonth(t, schedule.Months); err != nil {
 		return err
 	}
 	return nil
