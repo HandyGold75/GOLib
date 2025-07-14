@@ -15,38 +15,39 @@ type (
 		Hours   []int // Hours of the day: `0 - 23`
 		Minutes []int // Minutes of the hour: `0 - 59`
 	}
-
-	errScheduler struct{ ErrInvalidMonths, ErrInvalidWeeks, ErrInvalidDays, ErrInvalidHours, ErrInvalidMinutes, ErrResolveMonth, ErrResolveWeek, ErrResolveDay, ErrResolveHour, ErrResolveMinute error }
 )
 
-var ErrScheduler = errScheduler{
-	ErrInvalidMonths:  errors.New("invalid value in months, valid values are [1-12]"),
-	ErrInvalidWeeks:   errors.New("invalid value in weeks, valid values are [1-5]"),
-	ErrInvalidDays:    errors.New("invalid value in days, valid values are [0-6]"),
-	ErrInvalidHours:   errors.New("invalid value in hours, valid values are [0-23]"),
-	ErrInvalidMinutes: errors.New("invalid value in minutes, valid values are [0-59]"),
-	ErrResolveMonth:   errors.New("unable to resolve target month"),
-	ErrResolveWeek:    errors.New("unable to resolve target week"),
-	ErrResolveDay:     errors.New("unable to resolve target day"),
-	ErrResolveHour:    errors.New("unable to resolve target hour"),
-	ErrResolveMinute:  errors.New("unable to resolve target minute"),
+var Errors = struct {
+	InvalidMonths, InvalidWeeks, InvalidDays, InvalidHours, InvalidMinutes,
+	ResolveMonth, ResolveWeek, ResolveDay, ResolveHour, ResolveMinute error
+}{
+	InvalidMonths:  errors.New("invalid value in months, valid values are [1-12]"),
+	InvalidWeeks:   errors.New("invalid value in weeks, valid values are [1-5]"),
+	InvalidDays:    errors.New("invalid value in days, valid values are [0-6]"),
+	InvalidHours:   errors.New("invalid value in hours, valid values are [0-23]"),
+	InvalidMinutes: errors.New("invalid value in minutes, valid values are [0-59]"),
+	ResolveMonth:   errors.New("unable to resolve target month"),
+	ResolveWeek:    errors.New("unable to resolve target week"),
+	ResolveDay:     errors.New("unable to resolve target day"),
+	ResolveHour:    errors.New("unable to resolve target hour"),
+	ResolveMinute:  errors.New("unable to resolve target minute"),
 }
 
 func verifyScheduleData(schedule *Schedule) error {
 	if i := slices.IndexFunc(schedule.Months, func(v int) bool { return v < 1 || v > 12 }); i != -1 {
-		return ErrScheduler.ErrInvalidMonths
+		return Errors.InvalidMonths
 	}
 	if i := slices.IndexFunc(schedule.Weeks, func(v int) bool { return v < 1 || v > 5 }); i != -1 {
-		return ErrScheduler.ErrInvalidWeeks
+		return Errors.InvalidWeeks
 	}
 	if i := slices.IndexFunc(schedule.Days, func(v int) bool { return v < 0 || v > 6 }); i != -1 {
-		return ErrScheduler.ErrInvalidDays
+		return Errors.InvalidDays
 	}
 	if i := slices.IndexFunc(schedule.Hours, func(v int) bool { return v < 0 || v > 23 }); i != -1 {
-		return ErrScheduler.ErrInvalidHours
+		return Errors.InvalidHours
 	}
 	if i := slices.IndexFunc(schedule.Minutes, func(v int) bool { return v < 0 || v > 59 }); i != -1 {
-		return ErrScheduler.ErrInvalidMinutes
+		return Errors.InvalidMinutes
 	}
 	return nil
 }
@@ -69,7 +70,7 @@ func setNextTimeByMonth(t *time.Time, months []int) error {
 		offset += 13 - currentMonth
 		currentMonth = 1
 	}
-	return ErrScheduler.ErrResolveMonth
+	return Errors.ResolveMonth
 }
 
 func setNextTimeByWeek(t *time.Time, weeks []int) error {
@@ -90,7 +91,7 @@ func setNextTimeByWeek(t *time.Time, weeks []int) error {
 		offset = 6 - currentWeek
 		currentWeek = 1
 	}
-	return ErrScheduler.ErrResolveWeek
+	return Errors.ResolveWeek
 }
 
 func setNextTimeByDay(t *time.Time, days []int) error {
@@ -111,7 +112,7 @@ func setNextTimeByDay(t *time.Time, days []int) error {
 		offset = 8 - currentDay
 		currentDay = 1
 	}
-	return ErrScheduler.ErrResolveDay
+	return Errors.ResolveDay
 }
 
 func setNextTimeByHour(t *time.Time, hours []int) error {
@@ -132,7 +133,7 @@ func setNextTimeByHour(t *time.Time, hours []int) error {
 		offset = 24 - currentHour
 		currentHour = 0
 	}
-	return ErrScheduler.ErrResolveHour
+	return Errors.ResolveHour
 }
 
 func setNextTimeByMinute(t *time.Time, minutes []int) error {
@@ -153,7 +154,7 @@ func setNextTimeByMinute(t *time.Time, minutes []int) error {
 		offset = 60 - currentMinute
 		currentMinute = 0
 	}
-	return ErrScheduler.ErrResolveMinute
+	return Errors.ResolveMinute
 }
 
 // Set time of t to next occurence in schedule
