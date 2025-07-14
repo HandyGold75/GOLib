@@ -1,3 +1,3 @@
 module github.com/HandyGold75/GOLib/scheduler
 
-go 1.24.4
+go 1.24.5
