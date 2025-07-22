@@ -12,10 +12,12 @@ import (
 
 type (
 	Logger struct {
-		// When logging to file this file will be used. If `logger.DynamicFileName` is not nil this becomes the used path.
+		// When logging to file this file will be used.
+		//
+		// If `logger.DynamicFileName` is not nil this becomes the used path (.log Surfix is trimmed).
 		FilePath string
 
-		// Append the return to `logger.FilePath`.
+		// Append the return to `logger.FilePath` (.log Surfix is trimmed from `logger.FilePath`).
 		DynamicFileName func() string
 
 		// Mapping of Vebosities to set allowed verbosities and their priority.
@@ -107,10 +109,16 @@ func (logger Logger) logToFile(verbosity string, msgs ...any) {
 
 	fp := logger.FilePath
 	if logger.DynamicFileName != nil {
-		fp += "/" + logger.DynamicFileName()
+		fp = strings.TrimSuffix(fp, ".log") + "/" + logger.DynamicFileName()
 	}
 
 	if _, err := os.Stat(fp); os.IsNotExist(err) {
+		fileSplit := strings.Split(strings.ReplaceAll(fp, "\\", "/"), "/")
+		err := os.MkdirAll(strings.Join(fileSplit[:len(fileSplit)-1], "/"), os.ModePerm)
+		if err != nil {
+			logger.logToCLI("ERROR", "Failed creating logpath", err)
+			return
+		}
 		if err := os.WriteFile(fp, []byte(msg), 0640); err != nil {
 			logger.logToCLI("ERROR", "Failed creating logfile", err)
 		}
@@ -130,9 +138,38 @@ func (logger Logger) logToFile(verbosity string, msgs ...any) {
 }
 
 // Create new logger instance.
-func New(filePath string) *Logger {
+//
+// If log file is not present then it tries creating it.
+//
+// Log file is stored in `./golib/<name>.log` relative to `os.UserConfigDir`.
+func New(name string) (*Logger, error) {
+	file, err := os.UserConfigDir()
+	if err != nil {
+		return err
+	}
+	return NewAbs(file + "/golib/" + name + ".log"), nil
+}
+
+// Create new logger instance.
+//
+// If log file is not present then it tries creating it.
+//
+// Log file is stored in `./<name>.log` relative to `os.Executable`.
+func NewRel(name string) (*Logger, error) {
+	file, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	fileSplit := strings.Split(strings.ReplaceAll(file, "\\", "/"), "/")
+	return NewAbs(strings.Join(fileSplit[:len(fileSplit)-1], "/") + "/" + name + ".log"), nil
+}
+
+// Create new logger instance.
+//
+// If log file is not present then it tries creating it.
+func NewAbs(file string) *Logger {
 	return &Logger{
-		FilePath:           filePath,
+		FilePath:           file,
 		DynamicFileName:    nil,
 		Verbosities:        map[string]int{"high": 3, "medium": 2, "low": 1},
 		VerboseToCLI:       1,
