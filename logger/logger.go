@@ -145,7 +145,7 @@ func (logger Logger) logToFile(verbosity string, msgs ...any) {
 func New(name string) (*Logger, error) {
 	file, err := os.UserConfigDir()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	return NewAbs(file + "/golib/" + name + ".log"), nil
 }
@@ -158,7 +158,7 @@ func New(name string) (*Logger, error) {
 func NewRel(name string) (*Logger, error) {
 	file, err := os.Executable()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	fileSplit := strings.Split(strings.ReplaceAll(file, "\\", "/"), "/")
 	return NewAbs(strings.Join(fileSplit[:len(fileSplit)-1], "/") + "/" + name + ".log"), nil
