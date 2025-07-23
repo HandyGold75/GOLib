@@ -16,46 +16,62 @@ type (
 		//
 		// If `logger.DynamicFileName` is not nil this becomes the used path (.log Surfix is trimmed).
 		FilePath string
-
 		// Append the return to `logger.FilePath` (.log Surfix is trimmed from `logger.FilePath`).
 		DynamicFileName func() string
-
 		// Mapping of Vebosities to set allowed verbosities and their priority.
 		Verbosities map[string]int
-
 		// Minimal verbose priotity to log message to CLI.
 		VerboseToCLI int
-
 		// Minimal verbose priotity to log message to file.
 		VerboseToFile int
-
 		// Prepend logs with the date time.
 		AppendDateTime bool
-
 		// Prepend logs with the verbosity.
 		AppendVerbosity bool
-
 		// Prepend logs with this.
 		PrepentCLI string
-
 		// Called after every log to CLI.
 		MessageCLIHook func(msg string)
-
 		// Minimal char count a log part will take up.
 		CharCountPerPart int
-
 		// Minimal char space the verbosity part will take up (AppendVerbosity must be true to take effect).
 		CharCountVerbosity int
-
 		// When true RecordSepperator and EORSepperator are used when loggin to file, otherwise log the raw message.
 		UseSeperators bool
-
 		// Seperator string between message parts when logging to file (Logged message can not contain this string).
 		RecordSepperator string
-
 		// End of record string after a message when logging to file (Logged message can not contain this string).
 		EORSepperator string
 	}
+)
+
+var (
+	// Default value for `logger.DynamicFileName`, does not effect exisiting loggers.
+	DynamicFileName func() string = nil
+	// Default value for `logger.Verbosities`, does not effect exisiting loggers.
+	Verbosities = map[string]int{"high": 3, "medium": 2, "low": 1}
+	// Default value for `logger.VerboseToCLI`, does not effect exisiting loggers.
+	VerboseToCLI = 1
+	// Default value for `logger.VerboseToFile`, does not effect exisiting loggers.
+	VerboseToFile = 2
+	// Default value for `logger.AppendDateTime`, does not effect exisiting loggers.
+	AppendDateTime = true
+	// Default value for `logger.AppendVerbosity`, does not effect exisiting loggers.
+	AppendVerbosity = true
+	// Default value for `logger.PrepentCLI`, does not effect exisiting loggers.
+	PrepentCLI = ""
+	// Default value for `logger.MessageCLIHook`, does not effect exisiting loggers.
+	MessageCLIHook func(msg string) = nil
+	// Default value for `logger.CharCountPerPart`, does not effect exisiting loggers.
+	CharCountPerPart = 32
+	// Default value for `logger.CharCountVerbosity`, does not effect exisiting loggers.
+	CharCountVerbosity = 7
+	// Default value for `logger.UseSeperators`, does not effect exisiting loggers.
+	UseSeperators = true
+	// Default value for `logger.RecordSepperator`, does not effect exisiting loggers.
+	RecordSepperator = "<SEP>"
+	// Default value for `logger.EORSepperator`, does not effect exisiting loggers.
+	EORSepperator = "<EOR>\n"
 )
 
 func (logger Logger) logToCLI(verbosity string, msgs ...any) {
@@ -170,19 +186,19 @@ func NewRel(name string) (*Logger, error) {
 func NewAbs(file string) *Logger {
 	return &Logger{
 		FilePath:           file,
-		DynamicFileName:    nil,
-		Verbosities:        map[string]int{"high": 3, "medium": 2, "low": 1},
-		VerboseToCLI:       1,
-		VerboseToFile:      2,
-		AppendDateTime:     true,
-		AppendVerbosity:    true,
-		PrepentCLI:         "",
-		MessageCLIHook:     nil,
-		CharCountPerPart:   32,
-		CharCountVerbosity: 7,
-		UseSeperators:      true,
-		RecordSepperator:   "<SEP>",
-		EORSepperator:      "<EOR>\n",
+		DynamicFileName:    DynamicFileName,
+		Verbosities:        Verbosities,
+		VerboseToCLI:       VerboseToCLI,
+		VerboseToFile:      VerboseToFile,
+		AppendDateTime:     AppendDateTime,
+		AppendVerbosity:    AppendVerbosity,
+		PrepentCLI:         PrepentCLI,
+		MessageCLIHook:     MessageCLIHook,
+		CharCountPerPart:   CharCountPerPart,
+		CharCountVerbosity: CharCountVerbosity,
+		UseSeperators:      UseSeperators,
+		RecordSepperator:   RecordSepperator,
+		EORSepperator:      EORSepperator,
 	}
 }
 
