@@ -33,7 +33,7 @@ var Errors = struct {
 	ResolveMinute:  errors.New("unable to resolve target minute"),
 }
 
-func verifyScheduleData(schedule *Schedule) error {
+func verifyScheduleData(schedule Schedule) error {
 	if i := slices.IndexFunc(schedule.Months, func(v int) bool { return v < 1 || v > 12 }); i != -1 {
 		return Errors.InvalidMonths
 	}
@@ -158,7 +158,7 @@ func setNextTimeByMinute(t *time.Time, minutes []int) error {
 }
 
 // Set time of t to next occurence in schedule
-func SetNextTime(t *time.Time, schedule *Schedule) error {
+func SetNextTime(t *time.Time, schedule Schedule) error {
 	if err := verifyScheduleData(schedule); err != nil {
 		return err
 	}
@@ -208,4 +208,30 @@ func SleepFor(msg string, dur time.Duration, interval time.Duration) {
 // Short for `SleepFor(msg, time.Until(t), interval)`
 func SleepUntil(msg string, t time.Time, interval time.Duration) {
 	SleepFor(msg, time.Until(t), interval)
+}
+
+// Sleep for a minimum of `dur`.
+//
+// Call `f` every `interval`, time remaining is passsed to `f`.
+// If `f` returns false, the `SleepForFunc` returns early.
+func SleepForFunc(f func(time.Duration) bool, dur time.Duration, interval time.Duration) {
+	endTime := time.Now().Add(dur)
+	for time.Now().Before(endTime) {
+		untilEndTime := time.Until(endTime)
+		if f != nil {
+			if !f(untilEndTime) {
+				break
+			}
+			if interval < untilEndTime {
+				time.Sleep(interval)
+				continue
+			}
+		}
+		time.Sleep(untilEndTime)
+	}
+}
+
+// Short for `SleepForFunc(f, time.Until(t), interval)`
+func SleepUntilFunc(f func(time.Duration) bool, t time.Time, interval time.Duration) {
+	SleepForFunc(f, time.Until(t), interval)
 }
