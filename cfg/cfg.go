@@ -94,7 +94,7 @@ func DumpRel(name string, data any) error {
 //
 // If config file is not present then it tries creating it with content of data.
 func DumpAbs(file string, data any) error {
-	bytes, err := json.MarshalIndent(data, "", "\t")
+	bytes, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		return err
 	}
