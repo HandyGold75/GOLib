@@ -113,3 +113,35 @@ func DumpAbs(file string, data any) error {
 	}
 	return err
 }
+
+// Returns true if file exists and is not a dir.
+//
+// File is checked in `./golib/<name>.json` relative to `os.UserConfigDir`.
+func Exists(name string) bool {
+	file, err := os.UserConfigDir()
+	if err != nil {
+		return false
+	}
+	return ExistsAbs(file + "/golib/" + name + ".json")
+}
+
+// Returns true if file exists and is not a dir.
+//
+// File is checked in `./<name>.json` relative to `os.Executable`.
+func ExistsRel(name string) bool {
+	file, err := os.Executable()
+	if err != nil {
+		return false
+	}
+	fileSplit := strings.Split(strings.ReplaceAll(file, "\\", "/"), "/")
+	return ExistsAbs(strings.Join(fileSplit[:len(fileSplit)-1], "/") + "/" + name + ".json")
+}
+
+// Returns true if file exists and is not a dir.
+func ExistsAbs(file string) bool {
+	f, err := os.Stat(file)
+	if err != nil {
+		return false
+	}
+	return !f.IsDir()
+}
