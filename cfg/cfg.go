@@ -114,7 +114,7 @@ func DumpAbs(file string, data any) error {
 	return err
 }
 
-// Returns path if file exists and is a dir, else returns empty string.
+// Returns path if file exists, else returns empty string.
 //
 // File is checked in `./golib/<name>.json` relative to `os.UserConfigDir`.
 func Check(name string) string {
@@ -139,9 +139,41 @@ func CheckRel(name string) string {
 
 // Returns path if file exists, else returns empty string.
 func CheckAbs(file string) string {
-	_, err := os.Stat(file)
-	if err != nil {
+	f, err := os.Stat(file)
+	if err != nil || !f.IsDir() {
 		return ""
 	}
 	return file
+}
+
+// Returns path if dir exists, else returns empty string.
+//
+// Dir is checked in `./golib/<name>` relative to `os.UserConfigDir`.
+func CheckDir(name string) string {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return ""
+	}
+	return CheckDirAbs(dir + "/golib/" + name)
+}
+
+// Returns path if dir exists, else returns empty string.
+//
+// Dir is checked in `./<name>` relative to `os.Executable`.
+func CheckDirRel(name string) string {
+	dir, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	fileSplit := strings.Split(strings.ReplaceAll(dir, "\\", "/"), "/")
+	return CheckDirAbs(strings.Join(fileSplit[:len(fileSplit)-1], "/") + "/" + name)
+}
+
+// Returns path if dir exists, else returns empty string.
+func CheckDirAbs(path string) string {
+	f, err := os.Stat(path)
+	if err != nil || f.IsDir() {
+		return ""
+	}
+	return path
 }
