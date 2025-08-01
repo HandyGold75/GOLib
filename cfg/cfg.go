@@ -140,7 +140,7 @@ func CheckRel(name string) string {
 // Returns path if file exists, else returns empty string.
 func CheckAbs(file string) string {
 	f, err := os.Stat(file)
-	if err != nil || !f.IsDir() {
+	if err != nil || f.IsDir() {
 		return ""
 	}
 	return file
@@ -172,7 +172,7 @@ func CheckDirRel(name string) string {
 // Returns path if dir exists, else returns empty string.
 func CheckDirAbs(path string) string {
 	f, err := os.Stat(path)
-	if err != nil || f.IsDir() {
+	if err != nil || !f.IsDir() {
 		return ""
 	}
 	return path
