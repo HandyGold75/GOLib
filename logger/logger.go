@@ -74,6 +74,55 @@ var (
 	EORSepperator = "<EOR>\n"
 )
 
+// Create new logger instance.
+//
+// If log file is not present then it tries creating it.
+//
+// Log file is stored in `./golib/<name>.log` relative to `os.UserConfigDir`.
+func New(name string) (*Logger, error) {
+	file, err := os.UserConfigDir()
+	if err != nil {
+		return nil, err
+	}
+	return NewAbs(file + "/golib/" + name + ".log"), nil
+}
+
+// Create new logger instance.
+//
+// If log file is not present then it tries creating it.
+//
+// Log file is stored in `./<name>.log` relative to `os.Executable`.
+func NewRel(name string) (*Logger, error) {
+	file, err := os.Executable()
+	if err != nil {
+		return nil, err
+	}
+	fileSplit := strings.Split(strings.ReplaceAll(file, "\\", "/"), "/")
+	return NewAbs(strings.Join(fileSplit[:len(fileSplit)-1], "/") + "/" + name + ".log"), nil
+}
+
+// Create new logger instance.
+//
+// If log file is not present then it tries creating it.
+func NewAbs(file string) *Logger {
+	return &Logger{
+		FilePath:           file,
+		DynamicFileName:    DynamicFileName,
+		Verbosities:        Verbosities,
+		VerboseToCLI:       VerboseToCLI,
+		VerboseToFile:      VerboseToFile,
+		AppendDateTime:     AppendDateTime,
+		AppendVerbosity:    AppendVerbosity,
+		PrepentCLI:         PrepentCLI,
+		MessageCLIHook:     MessageCLIHook,
+		CharCountPerPart:   CharCountPerPart,
+		CharCountVerbosity: CharCountVerbosity,
+		UseSeperators:      UseSeperators,
+		RecordSepperator:   RecordSepperator,
+		EORSepperator:      EORSepperator,
+	}
+}
+
 func (logger Logger) logToCLI(verbosity string, msgs ...any) {
 	width, _, _ := term.GetSize(0)
 	msg := fmt.Sprintf(strings.Repeat("%-"+strconv.Itoa(min(logger.CharCountPerPart, int(float64(width)/float64(len(msgs)))))+"v", len(msgs)), msgs...)
@@ -150,55 +199,6 @@ func (logger Logger) logToFile(verbosity string, msgs ...any) {
 	}
 	if err := logFile.Close(); err != nil {
 		logger.logToCLI("ERROR", "Failed closing logfile", err)
-	}
-}
-
-// Create new logger instance.
-//
-// If log file is not present then it tries creating it.
-//
-// Log file is stored in `./golib/<name>.log` relative to `os.UserConfigDir`.
-func New(name string) (*Logger, error) {
-	file, err := os.UserConfigDir()
-	if err != nil {
-		return nil, err
-	}
-	return NewAbs(file + "/golib/" + name + ".log"), nil
-}
-
-// Create new logger instance.
-//
-// If log file is not present then it tries creating it.
-//
-// Log file is stored in `./<name>.log` relative to `os.Executable`.
-func NewRel(name string) (*Logger, error) {
-	file, err := os.Executable()
-	if err != nil {
-		return nil, err
-	}
-	fileSplit := strings.Split(strings.ReplaceAll(file, "\\", "/"), "/")
-	return NewAbs(strings.Join(fileSplit[:len(fileSplit)-1], "/") + "/" + name + ".log"), nil
-}
-
-// Create new logger instance.
-//
-// If log file is not present then it tries creating it.
-func NewAbs(file string) *Logger {
-	return &Logger{
-		FilePath:           file,
-		DynamicFileName:    DynamicFileName,
-		Verbosities:        Verbosities,
-		VerboseToCLI:       VerboseToCLI,
-		VerboseToFile:      VerboseToFile,
-		AppendDateTime:     AppendDateTime,
-		AppendVerbosity:    AppendVerbosity,
-		PrepentCLI:         PrepentCLI,
-		MessageCLIHook:     MessageCLIHook,
-		CharCountPerPart:   CharCountPerPart,
-		CharCountVerbosity: CharCountVerbosity,
-		UseSeperators:      UseSeperators,
-		RecordSepperator:   RecordSepperator,
-		EORSepperator:      EORSepperator,
 	}
 }
 
