@@ -11,6 +11,8 @@ import (
 )
 
 type (
+	Color string
+
 	Logger struct {
 		// When logging to file this file will be used.
 		//
@@ -20,6 +22,8 @@ type (
 		DynamicFileName func() string
 		// Mapping of Vebosities to set allowed verbosities and their priority.
 		Verbosities map[string]int
+		// Mapping of Vebosities Colors to set their cli color.
+		VerbositiesColors map[string]Color
 		// Minimal verbose priotity to log message to CLI.
 		VerboseToCLI int
 		// Minimal verbose priotity to log message to file.
@@ -45,11 +49,60 @@ type (
 	}
 )
 
+const (
+	Reset Color = "\033[0m"
+
+	Bold            Color = "\033[1m"
+	Faint           Color = "\033[2m"
+	Italic          Color = "\033[3m"
+	Underline       Color = "\033[4m"
+	StrikeTrough    Color = "\033[9m"
+	DubbleUnderline Color = "\033[21m"
+
+	Black   Color = "\033[30m"
+	Red     Color = "\033[31m"
+	Green   Color = "\033[32m"
+	Yellow  Color = "\033[33m"
+	Blue    Color = "\033[34m"
+	Magenta Color = "\033[35m"
+	Cyan    Color = "\033[36m"
+	White   Color = "\033[37m"
+
+	BGBlack   Color = "\033[40m"
+	BGRed     Color = "\033[41m"
+	BGGreen   Color = "\033[42m"
+	BGYellow  Color = "\033[43m"
+	BGBlue    Color = "\033[44m"
+	BGMagenta Color = "\033[45m"
+	BGCyan    Color = "\033[46m"
+	BGWhite   Color = "\033[47m"
+
+	BrightBlack   Color = "\033[90m"
+	BrightRed     Color = "\033[91m"
+	BrightGreen   Color = "\033[92m"
+	BrightYellow  Color = "\033[93m"
+	BrightBlue    Color = "\033[94m"
+	BrightMagenta Color = "\033[95m"
+	BrightCyan    Color = "\033[96m"
+	BrightWhite   Color = "\033[97m"
+
+	BGBrightBlack   Color = "\033[100m"
+	BGBrightRed     Color = "\033[101m"
+	BGBrightGreen   Color = "\033[102m"
+	BGBrightYellow  Color = "\033[103m"
+	BGBrightBlue    Color = "\033[104m"
+	BGBrightMagenta Color = "\033[105m"
+	BGBrightCyan    Color = "\033[106m"
+	BGBrightWhite   Color = "\033[107m"
+)
+
 var (
 	// Default value for `logger.DynamicFileName`, does not effect exisiting loggers.
 	DynamicFileName func() string = nil
 	// Default value for `logger.Verbosities`, does not effect exisiting loggers.
 	Verbosities = map[string]int{"high": 3, "medium": 2, "low": 1}
+	// Default value for `logger.VerbositiesColors`, does not effect exisiting loggers.
+	VerbositiesColors = map[string]Color{"high": Red, "low": BrightBlack}
 	// Default value for `logger.VerboseToCLI`, does not effect exisiting loggers.
 	VerboseToCLI = 1
 	// Default value for `logger.VerboseToFile`, does not effect exisiting loggers.
@@ -109,6 +162,7 @@ func NewAbs(file string) *Logger {
 		FilePath:           file,
 		DynamicFileName:    DynamicFileName,
 		Verbosities:        Verbosities,
+		VerbositiesColors:  VerbositiesColors,
 		VerboseToCLI:       VerboseToCLI,
 		VerboseToFile:      VerboseToFile,
 		AppendDateTime:     AppendDateTime,
@@ -134,6 +188,11 @@ func (logger Logger) logToCLI(verbosity string, msgs ...any) {
 		msg = "[" + time.Now().Format(time.DateTime) + "] " + msg
 	}
 	msg = logger.PrepentCLI + msg
+
+	col, ok := logger.VerbositiesColors[verbosity]
+	if ok {
+		msg = string(col) + msg + string(Reset)
+	}
 
 	if len([]rune(msg)) > width {
 		fmt.Printf("%."+strconv.Itoa(width-3)+"s...\n", msg)
