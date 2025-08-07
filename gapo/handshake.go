@@ -23,8 +23,8 @@ type handshakeData struct {
 	LocalSeed, RemoteSeed, EncodedCredentialsLocalSeed []byte
 	AuthHash, RemoteSeedAuthHash                       []byte
 
-	Cookies     []*http.Cookie // OK
-	klapSession *klapSession   // OK
+	Cookies     []*http.Cookie
+	klapSession *klapSession
 }
 
 // Versions
@@ -65,7 +65,7 @@ func (t *Tapo) handshake1() (handshakeData, error) {
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
-		return handshakeData{}, errors.New("unexpected status code: " + strconv.Itoa(res.StatusCode))
+		return handshakeData{}, errors.New("status code not 200: " + strconv.Itoa(res.StatusCode))
 	}
 
 	data.Cookies = res.Cookies()
@@ -109,7 +109,7 @@ func (t *Tapo) handshake2(data *handshakeData) error {
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
-		return err
+		return errors.New("status code not 200: " + strconv.Itoa(res.StatusCode))
 	}
 
 	data.klapSession = NewKlapSession(string(data.LocalSeed), string(data.RemoteSeed), string(data.AuthHash))

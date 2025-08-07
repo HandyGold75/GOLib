@@ -136,7 +136,7 @@ func NewTapo(ip, email, password string) (*Tapo, error) {
 		HandshakeDelay: time.Millisecond * 100,
 	}
 	if err := t.handshake(); err != nil {
-		return t, err
+		return &Tapo{}, err
 	}
 	return t, nil
 }
@@ -156,7 +156,7 @@ func NewTapoHash(ip, hash string) (*Tapo, error) {
 		HandshakeDelay: time.Millisecond * 100,
 	}
 	if err := t.handshake(); err != nil {
-		return t, err
+		return &Tapo{}, err
 	}
 	return t, nil
 }
