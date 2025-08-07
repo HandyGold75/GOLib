@@ -99,8 +99,10 @@ func DumpAbs(file string, data any) error {
 		return err
 	}
 
-	err = os.WriteFile(file, bytes, os.ModePerm)
-	if os.IsNotExist(err) {
+	if err = os.WriteFile(file, bytes, os.ModePerm); err != nil {
+		if !os.IsNotExist(err) {
+			return err
+		}
 		fileSplit := strings.Split(strings.ReplaceAll(file, "\\", "/"), "/")
 		err := os.MkdirAll(strings.Join(fileSplit[:len(fileSplit)-1], "/"), os.ModePerm)
 		if err != nil {
@@ -111,7 +113,7 @@ func DumpAbs(file string, data any) error {
 			return err
 		}
 	}
-	return err
+	return nil
 }
 
 // Returns path if file exists, else returns empty string.
