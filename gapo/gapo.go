@@ -2,6 +2,7 @@ package gapo
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -144,11 +145,15 @@ func NewTapo(ip, email, password string) (*Tapo, error) {
 // Create a new tapo session using a auth hash.
 //
 // Auth hash: sha256(sha1(username)sha1(password))
-func NewTapoHash(ip, hash string) (*Tapo, error) {
+func NewTapoHash(ip, authHash string) (*Tapo, error) {
+	authHashBytes, err := hex.DecodeString(authHash)
+	if err != nil {
+		return &Tapo{}, err
+	}
 	t := &Tapo{
 		ip:    net.ParseIP(ip),
 		email: "", password: "",
-		authHash: []byte(hash),
+		authHash: authHashBytes,
 
 		httpClient:    &http.Client{Timeout: time.Second * 2},
 		handshakeData: nil,
