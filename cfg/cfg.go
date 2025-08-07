@@ -40,16 +40,14 @@ func LoadAbs(file string, data any) error {
 	bytes, err := os.ReadFile(file)
 	if os.IsNotExist(err) || len(bytes) == 0 {
 		fileSplit := strings.Split(strings.ReplaceAll(file, "\\", "/"), "/")
-		err := os.MkdirAll(strings.Join(fileSplit[:len(fileSplit)-1], "/"), os.ModePerm)
-		if err != nil {
+		if err := os.MkdirAll(strings.Join(fileSplit[:len(fileSplit)-1], "/"), os.ModePerm); err != nil {
 			return err
 		}
 		bytes, err = json.MarshalIndent(data, "", "\t")
 		if err != nil {
 			return err
 		}
-		err = os.WriteFile(file, bytes, os.ModePerm)
-		if err != nil {
+		if err = os.WriteFile(file, bytes, os.ModePerm); err != nil {
 			return err
 		}
 	} else if err != nil {
@@ -104,12 +102,10 @@ func DumpAbs(file string, data any) error {
 			return err
 		}
 		fileSplit := strings.Split(strings.ReplaceAll(file, "\\", "/"), "/")
-		err := os.MkdirAll(strings.Join(fileSplit[:len(fileSplit)-1], "/"), os.ModePerm)
-		if err != nil {
+		if err := os.MkdirAll(strings.Join(fileSplit[:len(fileSplit)-1], "/"), os.ModePerm); err != nil {
 			return err
 		}
-		err = os.WriteFile(file, bytes, os.ModePerm)
-		if err != nil {
+		if err = os.WriteFile(file, bytes, os.ModePerm); err != nil {
 			return err
 		}
 	}
@@ -141,8 +137,7 @@ func CheckRel(name string) string {
 
 // Returns path if file exists, else returns empty string.
 func CheckAbs(file string) string {
-	f, err := os.Stat(file)
-	if err != nil || f.IsDir() {
+	if f, err := os.Stat(file); err != nil || f.IsDir() {
 		return ""
 	}
 	return file
@@ -173,8 +168,7 @@ func CheckDirRel(name string) string {
 
 // Returns path if dir exists, else returns empty string.
 func CheckDirAbs(path string) string {
-	f, err := os.Stat(path)
-	if err != nil || !f.IsDir() {
+	if f, err := os.Stat(path); err != nil || !f.IsDir() {
 		return ""
 	}
 	return path
