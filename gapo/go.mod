@@ -1,3 +1,3 @@
 module github.com/HandyGold75/GOLib/gapo
 
-go 1.24.5
+go 1.24.6
