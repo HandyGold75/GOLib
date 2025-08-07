@@ -83,7 +83,11 @@ func (t *Tapo) handshake1() (handshakeData, error) {
 // `local_seed`, `remote_seed` and `auth_hash` are now used for encryption.
 // The last 4 bytes of the initialisation vector are used as a sequence number that increments every time the client calls encrypt and this sequence number is sent as an url parameter to the device along with the encrypted payloat.
 func (t *Tapo) handshake2(data *handshakeData) error {
-	data.AuthHash = t.generateAuthHash()
+	if len(t.authHash) > 0 {
+		data.AuthHash = t.authHash
+	} else {
+		data.AuthHash = t.generateAuthHash()
+	}
 	remoteSeedAuthHash := sha256.Sum256(slices.Concat(data.RemoteSeed, data.LocalSeed, data.AuthHash))
 	data.RemoteSeedAuthHash = remoteSeedAuthHash[:]
 

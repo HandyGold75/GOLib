@@ -17,6 +17,7 @@ type (
 	Tapo struct {
 		ip              net.IP
 		email, password string
+		authHash        []byte
 
 		httpClient    *http.Client
 		handshakeData *handshakeData
@@ -122,11 +123,32 @@ type (
 	}
 )
 
-// Create a new tapo session.
+// Create a new tapo session using email and password.
 func NewTapo(ip, email, password string) (*Tapo, error) {
 	t := &Tapo{
 		ip:    net.ParseIP(ip),
 		email: email, password: password,
+		authHash: []byte{},
+
+		httpClient:    &http.Client{Timeout: time.Second * 2},
+		handshakeData: nil,
+
+		HandshakeDelay: time.Millisecond * 100,
+	}
+	if err := t.handshake(); err != nil {
+		return t, err
+	}
+	return t, nil
+}
+
+// Create a new tapo session using a auth hash.
+//
+// Auth hash: sha256(sha1(username)sha1(password))
+func NewTapoHash(ip, hash string) (*Tapo, error) {
+	t := &Tapo{
+		ip:    net.ParseIP(ip),
+		email: "", password: "",
+		authHash: []byte(hash),
 
 		httpClient:    &http.Client{Timeout: time.Second * 2},
 		handshakeData: nil,
