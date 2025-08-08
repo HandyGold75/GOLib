@@ -167,36 +167,46 @@ func NewTapoHash(ip, authHash string) (*Tapo, error) {
 }
 
 // Turn device on.
+//
+// When any error occures, will reautenticate and retries once.
 func (t *Tapo) On() (response, error) {
-	res, err := t.doReq(&request{
-		Method: "set_device_info", RequestTimeMils: int(time.Now().Unix()),
-		Params: &requestParams{DeviceOn: true},
-	})
+	res, err := t.doReq(&request{Method: "set_device_info", RequestTimeMils: int(time.Now().Unix()), Params: &requestParams{DeviceOn: true}})
 	if err != nil {
-		return response{}, err
+		t.handshakeData = nil
+		res, err = t.doReq(&request{Method: "set_device_info", RequestTimeMils: int(time.Now().Unix()), Params: &requestParams{DeviceOn: true}})
+		if err != nil {
+			return response{}, err
+		}
 	}
 	return res, nil
 }
 
 // Turn device off.
+//
+// When any error occures, will reautenticate and retries once.
 func (t *Tapo) Off() (response, error) {
-	res, err := t.doReq(&request{
-		Method: "set_device_info", RequestTimeMils: int(time.Now().Unix()),
-		Params: &requestParams{DeviceOn: false},
-	})
+	res, err := t.doReq(&request{Method: "set_device_info", RequestTimeMils: int(time.Now().Unix()), Params: &requestParams{DeviceOn: false}})
 	if err != nil {
-		return response{}, err
+		t.handshakeData = nil
+		res, err = t.doReq(&request{Method: "set_device_info", RequestTimeMils: int(time.Now().Unix()), Params: &requestParams{DeviceOn: false}})
+		if err != nil {
+			return response{}, err
+		}
 	}
 	return res, nil
 }
 
 // Get device info.
+//
+// When any error occures, will reautenticate and retries once.
 func (t *Tapo) GetDeviceInfo() (DeviceInfo, error) {
-	res, err := t.doReq(&request{
-		Method: "get_device_info", RequestTimeMils: int(time.Now().Unix()),
-	})
+	res, err := t.doReq(&request{Method: "get_device_info", RequestTimeMils: int(time.Now().Unix())})
 	if err != nil {
-		return DeviceInfo{}, err
+		t.handshakeData = nil
+		res, err = t.doReq(&request{Method: "get_device_info", RequestTimeMils: int(time.Now().Unix())})
+		if err != nil {
+			return DeviceInfo{}, err
+		}
 	}
 	return DeviceInfo{
 		DeviceID: res.Result.DeviceID,
@@ -234,12 +244,16 @@ func (t *Tapo) GetDeviceInfo() (DeviceInfo, error) {
 }
 
 // Get device info.
+//
+// When any error occures, will reautenticate and retries once.
 func (t *Tapo) GetEnergyUsage() (EnergyUsage, error) {
-	res, err := t.doReq(&request{
-		Method: "get_energy_usage", RequestTimeMils: int(time.Now().Unix()),
-	})
+	res, err := t.doReq(&request{Method: "get_energy_usage", RequestTimeMils: int(time.Now().Unix())})
 	if err != nil {
-		return EnergyUsage{}, err
+		t.handshakeData = nil
+		res, err = t.doReq(&request{Method: "get_energy_usage", RequestTimeMils: int(time.Now().Unix())})
+		if err != nil {
+			return EnergyUsage{}, err
+		}
 	}
 	return EnergyUsage{
 		TodayRuntime: res.Result.TodayRuntime, MonthRuntime: res.Result.MonthRuntime,
