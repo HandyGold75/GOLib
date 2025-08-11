@@ -108,30 +108,22 @@ const (
 	OrderRating     sortOrder = "CAE"
 )
 
+var Errors = struct{ PageNotExists error }{PageNotExists: errors.New("page does not exist")}
+
 // Create a new SearchClient.
 func NewSearch(query string, filter searchFilter, order sortOrder) *SearchClient {
 	return &SearchClient{
 		Query:        query,
-		SearchFilter: filter,
-		SortOrder:    order,
-		Language:     "en",
-		Region:       "US",
-		httpClient:   &http.Client{},
+		SearchFilter: filter, SortOrder: order,
+		Language: "en", Region: "US",
+		httpClient: &http.Client{},
 	}
-}
-
-// NextExists returns whether the Next call will return new content.
-func (search *SearchClient) NextExists() bool {
-	if !search.newPage {
-		return true
-	}
-	return search.continuationKey != ""
 }
 
 // Next returns content from the next page.
 func (search *SearchClient) Next() (*searchResult, error) {
-	if !search.NextExists() {
-		return nil, errors.New("page does not exist")
+	if search.newPage && search.continuationKey == "" {
+		return nil, Errors.PageNotExists
 	}
 	response, err := search.makeReq()
 	if err != nil {
