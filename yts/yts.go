@@ -70,19 +70,24 @@ type (
 	}
 
 	SearchClient struct {
+		// Query param: `search_query=`
 		Query string
 
-		Language string
-		Region   string
-
+		// Query param: `sp=`
 		SearchFilter searchFilter
-		SortOrder    sortOrder
-
-		// CustomParams allows you to copy and paste params from YouTube.
+		// Query param: `sp=`
+		SortOrder sortOrder
+		// Overwrites `SearchFilter` and `SortOrder` if not empty.
+		//
+		// Query param: `sp=`
 		CustomParams string
 
-		HTTPClient *http.Client
+		// Default: `en`
+		Language string
+		// Default: `US`
+		Region string
 
+		httpClient      *http.Client
 		continuationKey string
 		newPage         bool
 	}
@@ -95,6 +100,7 @@ const (
 	FilterVideo    searchFilter = "SAhAB"
 	FilterChannel  searchFilter = "SAhAC"
 	FilterPlaylist searchFilter = "SAhAD"
+	FilterMovie    searchFilter = "SAhAE"
 
 	OrderRelevance  sortOrder = "CAA"
 	OrderUploadDate sortOrder = "CAI"
@@ -102,51 +108,15 @@ const (
 	OrderRating     sortOrder = "CAE"
 )
 
-// Create a new SearchClient with default parameters.
-func NewSearch(query string) *SearchClient {
+// Create a new SearchClient.
+func NewSearch(query string, filter searchFilter, order sortOrder) *SearchClient {
 	return &SearchClient{
 		Query:        query,
+		SearchFilter: filter,
+		SortOrder:    order,
 		Language:     "en",
 		Region:       "US",
-		SearchFilter: FilterAll,
-		SortOrder:    OrderRelevance,
-		HTTPClient:   &http.Client{},
-	}
-}
-
-// Create a new SearchClient for video search.
-func NewSearchVideo(query string) *SearchClient {
-	return &SearchClient{
-		Query:        query,
-		Language:     "en",
-		Region:       "US",
-		SearchFilter: FilterVideo,
-		SortOrder:    OrderRelevance,
-		HTTPClient:   &http.Client{},
-	}
-}
-
-// Create a new SearchClient for channel search.
-func NewSearchChannel(query string) *SearchClient {
-	return &SearchClient{
-		Query:        query,
-		Language:     "en",
-		Region:       "US",
-		SearchFilter: FilterChannel,
-		SortOrder:    OrderRelevance,
-		HTTPClient:   &http.Client{},
-	}
-}
-
-// Create a new SearchClient for playlist search.
-func NewSearchPlaylist(query string) *SearchClient {
-	return &SearchClient{
-		Query:        query,
-		Language:     "en",
-		Region:       "US",
-		SearchFilter: FilterPlaylist,
-		SortOrder:    OrderRelevance,
-		HTTPClient:   &http.Client{},
+		httpClient:   &http.Client{},
 	}
 }
 
@@ -217,7 +187,7 @@ func (search *SearchClient) makeReq() (map[string]any, error) {
 		"User-Agent":   {"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36"},
 	}
 
-	response, err := search.HTTPClient.Do(request)
+	response, err := search.httpClient.Do(request)
 	if err != nil {
 		return nil, err
 	}
