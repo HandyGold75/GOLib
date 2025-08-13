@@ -1,6 +1,6 @@
 module github.com/HandyGold75/GOLib/tui
 
-go 1.24.6
+go 1.25.0
 
 require golang.org/x/term v0.34.0
 
