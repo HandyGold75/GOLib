@@ -221,4 +221,93 @@ type (
 		track
 		episode
 	}
+
+	audiobook struct {
+		Authors []struct {
+			Name string `json:"name"`
+		} `json:"authors"`
+		AvailableMarkets []string `json:"available_markets"`
+		Copyrights       []struct {
+			Text string `json:"text"`
+			Type string `json:"type"`
+		} `json:"copyrights"`
+		Description     string `json:"description"`
+		HTMLDescription string `json:"html_description"`
+		Edition         string `json:"edition"`
+		Explicit        bool   `json:"explicit"`
+		ExternalUrls    struct {
+			Spotify string `json:"spotify"`
+		} `json:"external_urls"`
+		Href   string `json:"href"`
+		ID     string `json:"id"`
+		Images []struct {
+			URL    string `json:"url"`
+			Height int    `json:"height"`
+			Width  int    `json:"width"`
+		} `json:"images"`
+		Languages []string `json:"languages"`
+		MediaType string   `json:"media_type"`
+		Name      string   `json:"name"`
+		Narrators []struct {
+			Name string `json:"name"`
+		} `json:"narrators"`
+		Publisher     string `json:"publisher"`
+		Type          string `json:"type"`
+		URI           string `json:"uri"`
+		TotalChapters int    `json:"total_chapters"`
+	}
+	Audiobook struct {
+		Audiobook audiobook `json:"audiobook"`
+	}
+
+	chapter struct {
+		AudioPreviewURL  string   `json:"audio_preview_url"`
+		AvailableMarkets []string `json:"available_markets"`
+		ChapterNumber    int      `json:"chapter_number"`
+		Description      string   `json:"description"`
+		HTMLDescription  string   `json:"html_description"`
+		DurationMs       int      `json:"duration_ms"`
+		Explicit         bool     `json:"explicit"`
+		ExternalUrls     struct {
+			Spotify string `json:"spotify"`
+		} `json:"external_urls"`
+		Href   string `json:"href"`
+		ID     string `json:"id"`
+		Images []struct {
+			URL    string `json:"url"`
+			Height int    `json:"height"`
+			Width  int    `json:"width"`
+		} `json:"images"`
+		IsPlayable           bool     `json:"is_playable"`
+		Languages            []string `json:"languages"`
+		Name                 string   `json:"name"`
+		ReleaseDate          string   `json:"release_date"`
+		ReleaseDatePrecision string   `json:"release_date_precision"`
+		ResumePoint          struct {
+			FullyPlayed      bool `json:"fully_played"`
+			ResumePositionMs int  `json:"resume_position_ms"`
+		} `json:"resume_point"`
+		Type         string `json:"type"`
+		URI          string `json:"uri"`
+		Restrictions struct {
+			Reason string `json:"reason"`
+		} `json:"restrictions"`
+		Audiobook
+	}
+	Chapters struct {
+		Chapters []chapter `json:"chapters"`
+	}
+	ChapterObject chapter
+
+	categorie struct {
+		Href  string `json:"href"`
+		Icons []struct {
+			URL    string `json:"url"`
+			Height int    `json:"height"`
+			Width  int    `json:"width"`
+		} `json:"icons"`
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	CategorieObject categorie
 )
