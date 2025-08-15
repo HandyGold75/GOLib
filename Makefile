@@ -1,6 +1,3 @@
-FILE := main.bin
-TARGET := .
-
 get:
 	go get go@latest
 	go get -u
@@ -22,11 +19,3 @@ get:
 		go mod tidy ; \
 		echo $$subdir ; \
 	done
-
-run:
-	cd ./main/ ; \
-	go build -o "$(TARGET)/$(FILE)" . && exec "$(TARGET)/$(FILE)"
-
-clean:
-	cd ./main/ ; \
-	rm -f "$(TARGET)/$(FILE)"
