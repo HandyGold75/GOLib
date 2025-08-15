@@ -43,9 +43,10 @@ type (
 )
 
 const (
-	GET  = lib.GET
-	PUT  = lib.PUT
-	POST = lib.POST
+	GET    = lib.GET
+	PUT    = lib.PUT
+	POST   = lib.POST
+	DELETE = lib.DELETE
 
 	RepeatTrack   = lib.RepeatTrack
 	RepeatContext = lib.RepeatContext
