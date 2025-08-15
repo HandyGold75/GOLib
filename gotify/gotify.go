@@ -14,6 +14,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/HandyGold75/GOLib/gotify/Categories"
+	"github.com/HandyGold75/GOLib/gotify/Chapters"
+	"github.com/HandyGold75/GOLib/gotify/Markets"
 	"github.com/HandyGold75/GOLib/gotify/Player"
 	"github.com/HandyGold75/GOLib/gotify/Users"
 	"github.com/HandyGold75/GOLib/gotify/lib"
@@ -30,8 +33,11 @@ type (
 		authUserMsgCallback func(url string)
 		cl                  *http.Client
 
-		Player Player.Player
-		Users  Users.Users
+		Categories Categories.Categories
+		Chapters   Chapters.Chapters
+		Markets    Markets.Markets
+		Player     Player.Player
+		Users      Users.Users
 	}
 
 	errorResponse struct {
@@ -43,15 +49,16 @@ type (
 )
 
 const (
-	GET    = lib.GET
-	PUT    = lib.PUT
-	POST   = lib.POST
-	DELETE = lib.DELETE
-
 	RepeatTrack   = lib.RepeatTrack
 	RepeatContext = lib.RepeatContext
 	RepeatOff     = lib.RepeatOff
 
+	TimeRangeLongTerm   = lib.TimeRangeLongTerm
+	TimeRangeMediumTerm = lib.TimeRangeMediumTerm
+	TimeRangeShortTerm  = lib.TimeRangeShortTerm
+)
+
+const (
 	ScopeUgcImageUpload            scope = "ugc-image-upload"            // Write access to user-provided images.
 	ScopeUserReadPlaybackState     scope = "user-read-playback-state"    // Read access to a user’s player state.
 	ScopeUserModifyPlaybackState   scope = "user-modify-playback-state"  // Write access to a user’s playback state
@@ -98,6 +105,9 @@ func NewGotifyPlayer(clientID, redirectURL string, scopes ...scope) *GotifyPlaye
 		authUserMsgCallback: func(url string) { fmt.Print("\r\nLogin: " + url + "\r\nPaste: ") },
 		cl:                  http.DefaultClient,
 	}
+	gp.Categories = Categories.New(gp.SendCategories)
+	gp.Chapters = Chapters.New(gp.SendChapters)
+	gp.Markets = Markets.New(gp.SendMarkets)
 	gp.Player = Player.New(gp.SendPlayer)
 	gp.Users = Users.New(gp.SendUsers)
 	return gp
@@ -192,6 +202,18 @@ func (gp *GotifyPlayer) Token() (*oauth2.Token, error) {
 	return transport.Source.Token()
 }
 
+func (gp *GotifyPlayer) SendCategories(method lib.HttpMethod, action string, options [][2]string, body []byte) ([]byte, error) {
+	return gp.Send(method, gp.URL+"/browse/categories/"+action, options, body)
+}
+
+func (gp *GotifyPlayer) SendChapters(method lib.HttpMethod, action string, options [][2]string, body []byte) ([]byte, error) {
+	return gp.Send(method, gp.URL+"/chapters/"+action, options, body)
+}
+
+func (gp *GotifyPlayer) SendMarkets(method lib.HttpMethod, action string, options [][2]string, body []byte) ([]byte, error) {
+	return gp.Send(method, gp.URL+"/markets/"+action, options, body)
+}
+
 func (gp *GotifyPlayer) SendPlayer(method lib.HttpMethod, action string, options [][2]string, body []byte) ([]byte, error) {
 	return gp.Send(method, gp.URL+"/me/player/"+action, options, body)
 }
@@ -212,7 +234,7 @@ func (gp *GotifyPlayer) Send(method lib.HttpMethod, url string, options [][2]str
 		opts = "?" + opts
 	}
 
-	req, err := http.NewRequest(string(method), url+opts, strings.NewReader(string(body[:])))
+	req, err := http.NewRequest(string(method), strings.TrimSuffix(url, "/")+opts, strings.NewReader(string(body[:])))
 	if err != nil {
 		return []byte{}, err
 	}
