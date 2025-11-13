@@ -27,9 +27,9 @@ type inputEvent struct {
 
 var inputEventSize = int(unsafe.Sizeof(inputEvent{}))
 
-func (i *inputEvent) String() string  { return keyCodeMap[i.Code] }    // Returns key as a string.
-func (i *inputEvent) IsPress() bool   { return i.Value == KeyPress }   // Returns true if event is a press event.
-func (i *inputEvent) IsRelease() bool { return i.Value == KeyRelease } // Returns true if event is a release event.
+func (i *inputEvent) String() string  { return keyCodeMap[i.Code] }           // Returns key as a string.
+func (i *inputEvent) IsPress() bool   { return i.Value == int32(KeyPress) }   // Returns true if event is a press event.
+func (i *inputEvent) IsRelease() bool { return i.Value == int32(KeyRelease) } // Returns true if event is a release event.
 
 type keyEvent int32
 
