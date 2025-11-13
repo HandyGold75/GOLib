@@ -1,3 +1,3 @@
 module github.com/HandyGold75/GOLib/argp
 
-go 1.25.0
+go 1.25.4
