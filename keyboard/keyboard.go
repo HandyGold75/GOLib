@@ -38,7 +38,10 @@ const (
 	KeyRelease keyEvent = 0
 )
 
-type KeyBoard struct{ fd *os.File }
+type KeyBoard struct {
+	name string
+	fd   *os.File
+}
 
 // Returns the first keyboard containing `name`, if name is empty then uses `keyboard` as `name`.
 //
@@ -59,7 +62,7 @@ func NewKeyboard(name string) (*KeyBoard, error) {
 			if err != nil {
 				continue
 			}
-			return &KeyBoard{fd: fd}, nil
+			return &KeyBoard{name: device, fd: fd}, nil
 		}
 	}
 	return &KeyBoard{}, Errors.NoKeyBoardFound
@@ -85,7 +88,7 @@ func NewKeyboards(name string) ([]*KeyBoard, error) {
 			if err != nil {
 				continue
 			}
-			ret = append(ret, &KeyBoard{fd: fd})
+			ret = append(ret, &KeyBoard{name: device, fd: fd})
 		}
 	}
 	if len(ret) <= 0 {
@@ -93,6 +96,9 @@ func NewKeyboards(name string) ([]*KeyBoard, error) {
 	}
 	return ret, nil
 }
+
+// Returns the keyboard name.
+func (k *KeyBoard) Name() string { return k.name }
 
 // Returns channel where events can be read from.
 //
