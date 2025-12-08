@@ -101,12 +101,11 @@ func NewKeyboards(name string) ([]*KeyBoard, error) {
 func (k *KeyBoard) Name() string { return k.name }
 
 // Returns channel where events can be read from.
-//
-// Caller is responsible for closing the channel when finish.
 func (k *KeyBoard) Read() chan inputEvent {
 	event := make(chan inputEvent)
 	go func(event chan inputEvent) {
-		for {
+		defer close(event)
+		for k.fd != nil {
 			buffer := make([]byte, inputEventSize)
 			n, err := k.fd.Read(buffer)
 			if err != nil {
@@ -208,12 +207,19 @@ func (k *KeyBoard) PressWithMod(key string, mod string) error {
 	return binary.Write(k.fd, binary.LittleEndian, inputEvent{Type: evSyn, Code: 0, Value: 0})
 }
 
+// Check if the keyboard is closed.
+func (k *KeyBoard) IsClosed() bool {
+	return k.fd == nil
+}
+
 // Close the keyboard.
 func (k *KeyBoard) Close() error {
 	if k.fd == nil {
 		return nil
 	}
-	return k.fd.Close()
+	ret := k.fd.Close()
+	k.fd = nil
+	return ret
 }
 
 // https://raw.githubusercontent.com/torvalds/linux/master/include/uapi/linux/input-event-codes.h
